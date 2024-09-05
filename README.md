@@ -22,7 +22,8 @@ GitHub:
 install.packages("devtools")
 
 # Install GroupComparison from GitHub
-devtools::install_github("TiRizvanov/GroupComparison")
+devtools::install_github("https://github.com/TiRizvanov/GroupComparison")
+library(GroupComparison)
 ```
 
 ## Functions Overview
