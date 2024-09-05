@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>GroupComparison Package Vignette</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">GroupComparison Package Vignette</h1>
+
+
+
+<div id="introduction" class="section level1">
+<h1>Introduction</h1>
+<p>The <code>GroupComparison</code> package provides a set of functions
+to visualize group comparisons using violin plots. These functions allow
+for flexibility in customizing the visual elements such as confidence
+intervals, p-values, medians, outliers, and more.</p>
+<p>This vignette demonstrates the usage of the three key functions in
+the package:</p>
+<ol style="list-style-type: decimal">
+<li><code>create_violin_plot()</code>: Create violin plots with flexible
+options for visualizing medians, outliers, boxplots, and p-values.</li>
+<li><code>violin_plots_with_comparison_group()</code>: Create violin
+plots with a designated comparison group, including p-values for
+pairwise comparisons.</li>
+<li><code>split_violin_plot()</code>: Create split violin plots that
+divide the violin shape based on a split criterion (e.g., a binary
+condition).</li>
+</ol>
+<div id="violin-plot-with-custom-elements" class="section level2">
+<h2>1. Violin Plot with Custom Elements</h2>
+<p>The <code>create_violin_plot()</code> function is used to create
+violin plots with additional elements like boxplots, medians, outliers,
+and p-values for group comparisons.</p>
+<div id="example" class="section level3">
+<h3>Example</h3>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(GroupComparison)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="co"># Example data</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>  <span class="at">group =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;A&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;C&quot;</span>), <span class="at">each =</span> <span class="dv">100</span>),</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>  <span class="at">value =</span> <span class="fu">c</span>(<span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">mean =</span> <span class="dv">0</span>), <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">mean =</span> <span class="dv">1</span>), <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">mean =</span> <span class="dv">2</span>))</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>)</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="co"># Custom group colors</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>group_colors <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&#39;A&#39;</span> <span class="ot">=</span> <span class="st">&quot;#8DA0CB80&quot;</span>, <span class="st">&#39;B&#39;</span> <span class="ot">=</span> <span class="st">&quot;#66C2A580&quot;</span>, <span class="st">&#39;C&#39;</span> <span class="ot">=</span> <span class="st">&quot;#E41A1C80&quot;</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="co"># Create a violin plot</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="fu">create_violin_plot</span>(</span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a>  <span class="at">data =</span> data,</span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a>  <span class="at">group_column =</span> <span class="st">&quot;group&quot;</span>,</span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a>  <span class="at">value_column =</span> <span class="st">&quot;value&quot;</span>,</span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a>  <span class="at">group_colors =</span> group_colors,</span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a>  <span class="at">p_value =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a>  <span class="at">p_value_format =</span> <span class="st">&quot;asterisk&quot;</span>,</span>
+<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a>  <span class="at">y_lab =</span> <span class="fu">bquote</span>(<span class="fu">bold</span>(Delta <span class="sc">~</span> <span class="fu">Log</span>(activity))),</span>
+<span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a>  <span class="at">breaks =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>),</span>
+<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a>  <span class="at">limits =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">3</span>, <span class="dv">3</span>)</span>
+<span id="cb1-24"><a href="#cb1-24" tabindex="-1"></a>)</span>
+<span id="cb1-25"><a href="#cb1-25" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" tabindex="-1"></a><span class="co"># Plot the violin plot</span></span>
+<span id="cb1-27"><a href="#cb1-27" tabindex="-1"></a><span class="fu">print</span>(p)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+</div>
+</div>
+<div id="violin-plots-with-a-comparison-group" class="section level2">
+<h2>2. Violin Plots with a Comparison Group</h2>
+<p>The <code>violin_plots_with_comparison_group()</code> function
+creates violin plots for various groups, with a designated comparison
+group highlighted. It also provides p-values for pairwise comparisons
+with the comparison group.</p>
+<div id="example-1" class="section level3">
+<h3>Example</h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Example data</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">group =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;A&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;C&quot;</span>), <span class="at">each =</span> <span class="dv">100</span>),</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">value =</span> <span class="fu">c</span>(<span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">mean =</span> <span class="dv">0</span>), <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">mean =</span> <span class="dv">1</span>), <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">mean =</span> <span class="dv">2</span>))</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co"># Create a violin plot with a comparison group</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>p_comparison <span class="ot">&lt;-</span> <span class="fu">violin_plots_with_comparison_group</span>(</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  <span class="at">data =</span> data,</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="at">group_column =</span> <span class="st">&quot;group&quot;</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  <span class="at">value_column =</span> <span class="st">&quot;value&quot;</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  <span class="at">comparison_group =</span> <span class="st">&quot;A&quot;</span>,</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>  <span class="at">p_value =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>  <span class="at">p_value_format =</span> <span class="st">&quot;asterisk&quot;</span>,</span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>  <span class="at">y_lab =</span> <span class="fu">bquote</span>(<span class="fu">bold</span>(Delta <span class="sc">~</span> <span class="fu">Log</span>(activity))),</span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>  <span class="at">breaks =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>),</span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>  <span class="at">limits =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">3</span>, <span class="dv">3</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>)</span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="co"># Plot the violin plot with comparison group</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="fu">print</span>(p_comparison)</span></code></pre></div>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASAAAAEgCAMAAAAjXV6yAAABd1BMVEUAAAAAADoAAGYAOjoAOmYAOpAAZrYxWJAzMzM6AAA6ADo6AGY6OgA6Ojo6OmY6OpA6ZmY6ZpA6ZrY6kNtNTU1NTW5NTY5Nbm5Nbo5NbqtNjshmAABmADFmADpmAGZmOgBmOjpmOmZmOpBmZjpmZmZmZpBmkJBmkLZmkNtmtttmtv9uTU1ubm5ubo5ujqtujshuq8huq+SOTU2Obk2Obm6Ojm6Oq8iOyOSOyP+QOgCQOjqQZjqQZmaQkGaQtraQttuQ2/+o1sirbk2rjm6ryOSr5P+y4NK2ZgC2Zjq2kGa2kJC2kLa2tpC2tra2ttu229u22/+2/7a2/9u2//+8xdvGz+XIjk3Ijm7Iq27Iq47I5OTI5P/I///bkDrbkGbbtmbbtpDbtrbb25Db27bb29vb2//b/7bb/9vb///kq27kq47kyI7kyKvk5Kvk///r6+v/AAD/tmb/yI7/25D/27b/29v/5Kv/5Mj//7b//8j//9v//+T///9vYZ+2AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAO9ElEQVR4nO2di38bxRHH5SSka4pdSM80ids6aR0CNTRtSBtoUlIbImyKSdtYToGmCbWhKKTBxC9Fuj++t/eQTreP2Znde1ja3+eDwZz3NPfV7OxrbrcVemnVqtuApssDAuQBAfKAAHlAgDwgQNUA+v7k3sQDAuQBAfKAAHlAgFCAjj8MgoU/PsN+xtQAenE94LqI/YypAdQNgpv8x3vYD5kSQIPP377wLDxa8YB0GmwHC3exHzJFgJ4HwfkRn+9NxIYy+vMSxBTSFiICiiJQcA1XhHU6na3onw7DlRNE9iBuQaYg999GBqH7QU9Xgt+jrKsdEKsWULgdvP4vjHmd2gF1FICMLKoQkC0hIiBWGaDjGyu8cm0HFzB96foBdZSATCzC9IPWeAv/XYCKQYl5NQJi1QHifUQuvAPt7SXm2BEiAupoABkQwg1Wb6AHqyzmkxHClBREAsQqBUSwr1M3oI4WEGxSFYCyKmZZxyiAig7UNECZfYGpOTqRABV4CIBAk0oGVDDLxoUYobDgQE0HZONCbJUAqIhDBASZVCogVjMg0YGaBkgwy6KOUQAJNCSAAEIVA7JwIbbaRhaWOFCzADGJWZUCEmHIAOltqhoQmRBrYwHJHKhRgFjdgCQspIC0NpUJSG4WkdDkAWI1A5LyUQDS3LhEQAqziC19mYB0X1r1gIguFANCFJWGaCUg9Y1LA6SZCaYQYmxvr41xITkfBSDNl1YDIJILMT6phACkcKDmANLOBBMIoQHJ4KRCEaoDEMWFWBtXxZoOyHYmWLxhOwrS5oDkvejSAfFJ++CdL00M1AIiEEoAGROSdxI1gJQmYQA9T5Z9DNJfgLUEPKCIT/MBDdaC1+/yxTF4YQycKscSQgKSt2FlA3pxY4WnJxqszYNrCWgXwgKSMtADUty6lOQFg6ly7NROBsisHAGQ6jtDAzKpYjAgpAuxDJChC9UIiKcCD5M4VSlvW0UFwv/BJeSx1UxGxZhoQWxFKunFrcKdiYCOrxskL5isJeBciDsQwoNUwwy9B8lvXQTUf3z70tz8lTvfSv+a53fAfMoBxHvShkGIBEhh0Tigg0utTPN/E//YiI/pYgtq6oLzSQmZ/H1JgPrrrdbc8pXNzc2N5blW61zRi16Y1C9TQBgXShyodkD99+fv5a7s3HqpQGibymdCAK2/Vbi2/5MxQmmCWQD0g0wBmRNieUAmhNSAootkQP/+i3Bx/838b93ABJDxahQCUAwm5WMASDlZFsSXiYD6n0mufiVvzLTWSU1zAKgdGANSEAjS6zRArmQOyJhQARBYrERAvcXX7kn/zFzuAaV8MkCwC5UKKOoBWTFSTDQ0A5BVDIrVX5/lncSZ1yS9RMOnkdmlaF1Nh+ZFQFAxNSCrVizVwa2E0dWvjaw3ME7d/TAbWLULgMgu5GCokejgzwmjYr/I6HGmAdBO4kSt1k9NHgA0zQ4QkwAi1jE3gHZuxWxOX92YbRXHGgaPgwNk0ituC4BAFyoPUD+hkwSg/dlT982w6E3T2HXiAPFmfubc19kvDQDEZIAgQuVNmPV+/qO0gd+NKBHaMfeA2hRApc1JD52mt4iPP7FpFQEiuZA1oMPdncVT93a5/kOIPyF+SRxusOWAaHXMGtDDVk40QEi7YEDtqgAZLRx+nAOE7wOpDCsFkL5kWUvP/U9nZz7YjOVsoGEFKM9nDBDJhewBhf3bV0ixmWpXcwApXdLthJnCrpCPoQmAmBoQhZAWkOpGOUBRG//3xTKCdHyJBKg9FYDSa64BUcK0OsvVBFAUgP57ezmTIhjpN6ZwC2icTwEQdbihAKS8Dy4GDR7o1w6l31t6rcmAXGXaP303ABZXpVU/voKPQUwPCCCEexVBfZ/CWOwXutnobhAsAOlT8tgYklqxAh8koHJeZomnO5Sz0d3g/BdrFEC0fhAIiNSbRvIpdhT/lE4nSiP0k2vPBmOATJLLtIldunwxNkorSxQUfoeyzaRpZtL0MtmN5IAiPU5ShE7LZ+wH1XlQ0YEEDyLNCjl5Z/Uxn7SX94PcAkLVMAkgSmfRAaDDjVeUHcXqAAl8REAUF7J+b/5wI1kTOyeP1BAgd+tiDgCVsPNCLxlqqNv6ygAVO0FSQAQXsty7gwOa1+UuVAdIpIEH5H73l97lO/o/dwoIV8NIgCrfP6gqQJIaJgOEdyEbQA6mO2Qm0QBJYJAAgS9mQc8z4YCc7oJnNB8EyhyQpp8nq2FSQGgXQr89W4hBh1n3Z5e2rIECpLmJjAUJkP7tWYP0EsdLz6JFjgBlN0EDcrnZrf3Ss2hQ6YCQLoTeJMPt0rNokBoQLgSpAGFdCL3Nitul5+TpDAFpbiEJQCUAMsqydbv0LBrUAEAuN/23XXoW7KkAEM6FclaYpWmXsHeHGSDsOEMFCOlCgZEFORUBHVzmb0Xtv0zJkc7MKXY90IBECiUAMszzLwDan42jcxStf2NUHLKnIYBGFgUmBuRVABSRiXqI/OXVs2blpfZ0isK9p+EckM2eoMKEWVK3KDnSI3Msd17AAcK5UGBiQF7KoYYFIMutKeQjVStAsn2JDZ+l0My/n3rQQ8JrCBJzlICwNcwaUGbSloEBYyrEoGi0MfPq8q9nLXrSoe08XhmAQgGQ6bMUAEUulMjGgeBpqtoBme/7IHQUH81FeOYsukF5c1wCCuMUESqgzKQt+PPHhepJ8/wpo5NZrCY65YDiS9aAhid8GJXhwgAarMVebnKMqH6ikwAovWYBiHVGZ8SY8xEBHe58xmfMPv2V2Mx3g4WPwidGx4g2D1DoBlBvST1hFjnQxeyniTVqQPoQWSKgDv6QIXGokeqMAOjF9cD4ADbtqV643M1E1jEoNWkLyUccaryxOHN1c0M20jhaSQGZHOHnHJBtK5aaZA3o1P2HfCD/g2SwKgIyzn8bT3wDNngrpt4l+XepJJdMt4tj2pQ7sxQ8DihmIxuL4TxIPVWOy68fepBdRzEzaQvpQOJY7Nw3i603d29JgjQKkMWG22UBCh0AiqrWqftJoBarGCZIaxdbTjKg8NGP78dNvdiIpakvZs28zWpU2YBw26RKe9IHm9IcvKijeNOwoxiqF1tqBMQSQKZ/H6ukoUbYRECRSbyjSAX0iTjB0bs6/vvgwYr5MaLk5boSAcVDDSqgnrBmeHDZYtpVtRp1cgGF+/NjGZz9Ry+LGwdiRAVUwqT90CLOhx6D9pdar36QpL989cml1hnyPl2ZOTJAJmsQKECoTWGjII3jU0heWJ8dDlZn5G/8IEQ+X8z9utjwzpaA+G7JlzijmXnFfskoTSIgp5KuZ3pAI0nWM5H7ujUOUH+UBrz8hu2enLL1TPeAUM8bAULykb/t42RtLJQu+NYMiDkFZLW6mtgjADIrJwlCijxp9NGidoDC3lLc+zlYirzHbn0+sYcGCJNIjnxg9JnsxUn7maT3vD971jLDI1YRkOnjOMy0H9feHvYRNOkvZQAyLVcSID4WQz6CEIOSuPOwdeof6/Rk8qEYDZD52z4VA+LrYmn6y9kIlkUaXqrSASHtsa1io5XVM1ENs0nkTEXNqSgLkHWQDvsbc/G+C9+GvdvA+6smSht6NCDTd1arB+RaJQNC29NMQFnKAAaQi/fmJbIHxLdsP03f074oYtKJzIVI72kUZQ3ooaNRxlCsTEB4c2wB/cATFPnRUA5asESsQ8nKCSWECG8birIE1H+/dZaPv/of24/DUuWSTpwDIphjCchRpn1ew5wK7EyVEKYnFFAShAiAbDd5k6t5VSxejIoJTQKgOEjPL19yGKSHgPAhFdhoshZA4XrazJ+jfLpUQ0D4knpAJGvsO4o73H3mHQzDMrEkp4IAyGazW5UaN9QI4yiNzutKS+oA0YyZMED0DbdVcgSot+hgNjETIyS+ZUWVgIh8mgyIVFR1KsJkAWJkQNRjI9RqIqCwDEBUWyYNEPFsH7WmBRDZlsYCon7npPPFNLIBNJ654BoQubAEEJ3PJAISD4GsC1A+e4q+j6JMzAKQ7BjRmgCVJ9eALEyZREAZoVUHDjSJgDIX2ttz4ECTCYglfDJCEwnIqlqMA7K6VVMB2T0UG6tiVrdyCGjXYTOPN2tMWR1rEKC+dGcBuuwAxS6UVTE7Z3QD6OCW2560W0AVWyIA6j96pdU6c6f3yyYBYo0BdMjfGOPZQY0CFI4AWdYwS0CPl5L0xLCBgNpOHMgSUBSbX8oOm28coGSoUS+gOAIl6XfNAhQTWnVQw1y0Yo+XztxpLqDKLZE386ff+sYDSiTvKEaNWZP6QUlD3yRAUTD6a3OGGlwJIOsQ1NDBqjtA1VviAQHygACdGEDMA9KLA7KP0ZMOqAZLPCBAHhAgDwiQBwToxAAKmQeklwcEiK064DPRgBx0EycaUE038YAAeUCAPCBAHhAgDwiQBwTIAwLkAQHygAB5QIA8IEAeECAPCJAHBMgDAuQBAUIBOv7Q8JzVoqYE0IvrmMOP8poSQN0guMl/mB2fldd0ABp8/vaFZ/wgPw9Io8F2sHAX+yFTBOh5EJzH85kiQFEECq6NPm2ChQIUN1/p2ZhPk8NEcZp0D8oDMj1ndUweEKBJB5To+MYK4iDaMU0HoMEab+G/C3wMUinqIwa5uobQlACKKpkfrJYjDwiQBzS58oAAeUCAPCBAHhAgDwiQBwTIAwLkAQHygACVDShdbAx+9pHdfY5WCPN0RT3lg+3ffokqUxUgynJjXl3rO4Thg8QQ3LJVBYD4cw3WKCvWIw3WFv5gdwe+ZLVwM150QE1oVQQo8gDCPNtIRysX/rdiV8ei7yieCu3i6lhFgI7XCBO1OXWDi9EDWtWxoxXCknCFMcjKgWI4Xbs6dkTzwMoALdh8/fHDEZ9w7B54VRWk/2nVSncdtITNrWLvJf8mmZcoqmEBNXcrf5M4DD5/5wtMsaoAPaFkzWRKv/zndn3FblObeftvP+0jZLCpampHMbHqd/RWLKsc4bZlX/Hpu80bapx4eUCAPCBAHhAgDwiQBwTIAwLkAQHygAB5QIA8IEAeECAPCJAHBMgDAuQBAfKAAHlAgDwgQB4QIA8IkAcEyAMC5AEB8oAAeUCAPCBAHhAgDwiQBwTIAwL0fz2Mh8KO6yOXAAAAAElFTkSuQmCC" /><!-- --></p>
+</div>
+</div>
+<div id="split-violin-plot" class="section level2">
+<h2>3. Split Violin Plot</h2>
+<p>The <code>split_violin_plot()</code> function creates split violin
+plots, where the violin is divided into two halves based on a split
+criterion. This is useful for comparing two subgroups within each
+group.</p>
+<div id="example-2" class="section level3">
+<h3>Example</h3>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Example data with a split criterion</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">group =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;A&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;C&quot;</span>), <span class="at">each =</span> <span class="dv">100</span>),</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">value =</span> <span class="fu">c</span>(<span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">mean =</span> <span class="dv">0</span>), <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">mean =</span> <span class="dv">1</span>), <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">mean =</span> <span class="dv">2</span>)),</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">split_criteria =</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="cn">TRUE</span>, <span class="cn">FALSE</span>), <span class="dv">300</span>, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>)</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co"># Colors for the split halves</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>colors <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;TRUE&quot;</span> <span class="ot">=</span> <span class="st">&quot;#FF9999&quot;</span>, <span class="st">&quot;FALSE&quot;</span> <span class="ot">=</span> <span class="st">&quot;#99CCFF&quot;</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co"># Labels for the legend</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>labels <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;TRUE&quot;</span> <span class="ot">=</span> <span class="st">&quot;First Group&quot;</span>, <span class="st">&quot;FALSE&quot;</span> <span class="ot">=</span> <span class="st">&quot;Second Group&quot;</span>)</span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co"># Create a split violin plot</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>p_split <span class="ot">&lt;-</span> <span class="fu">split_violin_plot</span>(</span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>  <span class="at">data =</span> data,</span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a>  <span class="at">group_column =</span> <span class="st">&quot;group&quot;</span>,</span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a>  <span class="at">value_column =</span> <span class="st">&quot;value&quot;</span>,</span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a>  <span class="at">split_column =</span> <span class="st">&quot;split_criteria&quot;</span>,</span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a>  <span class="at">colors =</span> colors,</span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a>  <span class="at">labels =</span> labels,</span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a>  <span class="at">x_lab =</span> <span class="st">&quot;Groups&quot;</span>,</span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a>  <span class="at">y_lab =</span> <span class="fu">bquote</span>(<span class="fu">bold</span>(Delta <span class="sc">~</span> <span class="fu">Log</span>(activity))),</span>
+<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a>  <span class="at">outliers =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a>  <span class="at">CI =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a>  <span class="at">median =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a>  <span class="at">n_obs =</span> <span class="cn">TRUE</span></span>
+<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a>)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co"># Plot the split violin plot</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">print</span>(p_split)</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt; TableGrob (1 x 2) &quot;arrange&quot;: 2 grobs</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt;   z     cells    name                  grob</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; 1 1 (1-1,1-1) arrange        gtable[layout]</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co">#&gt; 2 2 (1-1,2-2) arrange gTree[GRID.gTree.139]</span></span></code></pre></div>
+</div>
+</div>
+</div>
+<div id="conclusion" class="section level1">
+<h1>Conclusion</h1>
+<p>The <code>GroupComparison</code> package provides a flexible and
+powerful way to create customized violin plots for comparing multiple
+groups. The package’s functions allow for extensive customization,
+including p-values, confidence intervals, medians, outliers, and
+more.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

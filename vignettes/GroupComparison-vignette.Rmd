@@ -1,0 +1,136 @@
+
+---
+title: "GroupComparison Package Vignette"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{GroupComparison Package Vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction
+
+The `GroupComparison` package provides a set of functions to visualize group comparisons using violin plots. These functions allow for flexibility in customizing the visual elements such as confidence intervals, p-values, medians, outliers, and more.
+
+This vignette demonstrates the usage of the three key functions in the package:
+
+1. `create_violin_plot()`: Create violin plots with flexible options for visualizing medians, outliers, boxplots, and p-values.
+2. `violin_plots_with_comparison_group()`: Create violin plots with a designated comparison group, including p-values for pairwise comparisons.
+3. `split_violin_plot()`: Create split violin plots that divide the violin shape based on a split criterion (e.g., a binary condition).
+
+## 1. Violin Plot with Custom Elements
+
+The `create_violin_plot()` function is used to create violin plots with additional elements like boxplots, medians, outliers, and p-values for group comparisons.
+
+### Example
+
+```{r violin-plot, message=FALSE, warning=FALSE}
+library(GroupComparison)
+library(ggplot2)
+
+# Example data
+data <- data.frame(
+  group = rep(c("A", "B", "C"), each = 100),
+  value = c(rnorm(100, mean = 0), rnorm(100, mean = 1), rnorm(100, mean = 2))
+)
+
+# Custom group colors
+group_colors <- c('A' = "#8DA0CB80", 'B' = "#66C2A580", 'C' = "#E41A1C80")
+
+# Create a violin plot
+p <- create_violin_plot(
+  data = data,
+  group_column = "group",
+  value_column = "value",
+  group_colors = group_colors,
+  p_value = TRUE,
+  p_value_format = "asterisk",
+  y_lab = bquote(bold(Delta ~ Log(activity))),
+  breaks = c(-3, 0, 1, 2, 3),
+  limits = c(-3, 3)
+)
+
+# Plot the violin plot
+print(p)
+```
+
+## 2. Violin Plots with a Comparison Group
+
+The `violin_plots_with_comparison_group()` function creates violin plots for various groups, with a designated comparison group highlighted. It also provides p-values for pairwise comparisons with the comparison group.
+
+### Example
+
+```{r violin-plot-comparison, message=FALSE, warning=FALSE}
+# Example data
+data <- data.frame(
+  group = rep(c("A", "B", "C"), each = 100),
+  value = c(rnorm(100, mean = 0), rnorm(100, mean = 1), rnorm(100, mean = 2))
+)
+
+# Create a violin plot with a comparison group
+p_comparison <- violin_plots_with_comparison_group(
+  data = data,
+  group_column = "group",
+  value_column = "value",
+  comparison_group = "A",
+  p_value = TRUE,
+  p_value_format = "asterisk",
+  y_lab = bquote(bold(Delta ~ Log(activity))),
+  breaks = c(-3, 0, 1, 2, 3),
+  limits = c(-3, 3)
+)
+
+# Plot the violin plot with comparison group
+print(p_comparison)
+```
+
+## 3. Split Violin Plot
+
+The `split_violin_plot()` function creates split violin plots, where the violin is divided into two halves based on a split criterion. This is useful for comparing two subgroups within each group.
+
+### Example
+
+```{r split-violin-plot, message=FALSE, warning=FALSE}
+# Example data with a split criterion
+data <- data.frame(
+  group = rep(c("A", "B", "C"), each = 100),
+  value = c(rnorm(100, mean = 0), rnorm(100, mean = 1), rnorm(100, mean = 2)),
+  split_criteria = sample(c(TRUE, FALSE), 300, replace = TRUE)
+)
+
+# Colors for the split halves
+colors <- c("TRUE" = "#FF9999", "FALSE" = "#99CCFF")
+
+# Labels for the legend
+labels <- c("TRUE" = "First Group", "FALSE" = "Second Group")
+
+# Create a split violin plot
+p_split <- split_violin_plot(
+  data = data,
+  group_column = "group",
+  value_column = "value",
+  split_column = "split_criteria",
+  colors = colors,
+  labels = labels,
+  x_lab = "Groups",
+  y_lab = bquote(bold(Delta ~ Log(activity))),
+  outliers = TRUE,
+  CI = TRUE,
+  median = TRUE,
+  n_obs = TRUE
+)
+
+# Plot the split violin plot
+print(p_split)
+```
+
+# Conclusion
+
+The `GroupComparison` package provides a flexible and powerful way to create customized violin plots for comparing multiple groups. The package's functions allow for extensive customization, including p-values, confidence intervals, medians, outliers, and more.
