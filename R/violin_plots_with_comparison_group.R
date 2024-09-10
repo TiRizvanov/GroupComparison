@@ -70,7 +70,7 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
       mutate(label = if (p_value_format == "asterisk") {
         ifelse(p_value < 0.001, "***",
                ifelse(p_value < 0.01, "**",
-                      ifelse(p_value < 0.05, "*", format(round(p_value, 2))))
+                      ifelse(p_value < 0.05, "*", format(round(p_value, 2)))))
       } else {
         format(round(p_value, 3), nsmall = 3)
       },
