@@ -81,7 +81,7 @@ create_violin_plot <- function(data, group_column, value_column, x_labels = NULL
     p_values <- lapply(pairwise_groups, function(pair) {
       data1 <- data %>% filter(group_label == pair[1])
       data2 <- data %>% filter(group_label == pair[2])
-      p_value <- ks.test((data1$delta, data2$delta)$p.value
+      p_value <- ks.test(data1$delta, data2$delta)$p.value
       return(data.frame(group1 = pair[1], group2 = pair[2], p_value = p_value))
     })
 
