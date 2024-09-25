@@ -62,7 +62,7 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
     p_values <- lapply(pairwise_groups, function(group) {
       data1 <- data %>% filter(group_label == group)
       data2 <- data %>% filter(group_label == comparison_group)
-      p_value <- wilcox.test(data1$delta, data2$delta)$p.value
+      p_value <- ks.test((data1$delta, data2$delta)$p.value
       return(data.frame(group1 = group, group2 = comparison_group, p_value = p_value))
     })
 
