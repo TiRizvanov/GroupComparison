@@ -57,25 +57,30 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
   }
 
   # Calculate p-values for pairwise comparisons with the comparison group
-  if (p_value) {
-    pairwise_groups <- setdiff(unique(data$group_label), comparison_group)
-    p_values <- lapply(pairwise_groups, function(group) {
-      data1 <- data %>% filter(group_label == group)
-      data2 <- data %>% filter(group_label == comparison_group)
-      p_value <- ks.test(data1$delta, data2$delta)$p.value
-      return(data.frame(group1 = group, group2 = comparison_group, p_value = p_value))
-    })
+if (p_value) {
+  pairwise_groups <- setdiff(unique(data$group_label), comparison_group)
+  p_values <- lapply(pairwise_groups, function(group) {
+    data1 <- data %>% filter(group_label == group)
+    data2 <- data %>% filter(group_label == comparison_group)
+    p_value <- ks.test(data1$delta, data2$delta)$p.value
+    return(data.frame(group1 = group, group2 = comparison_group, p_value = p_value))
+  })
+  
+  # Adjust p-values using the Bonferroni method
+  p_values_df <- do.call(rbind, p_values)
+  p_values_df$p_value <- p.adjust(p_values_df$p_value, method = "bonferroni")
+  
+  p_values_df <- p_values_df %>%
+    mutate(label = if (p_value_format == "asterisk") {
+      ifelse(p_value < 0.001, "***",
+             ifelse(p_value < 0.01, "**",
+                    ifelse(p_value < 0.05, "*", format(round(p_value, 2)))))
+    } else {
+      format(round(p_value, 3), nsmall = 3)
+    },
+    y.position = max(data$delta) + (1:nrow(.)) * 0.05 * diff(range(data$delta)))
+}
 
-    p_values_df <- do.call(rbind, p_values) %>%
-      mutate(label = if (p_value_format == "asterisk") {
-        ifelse(p_value < 0.001, "***",
-               ifelse(p_value < 0.01, "**",
-                      ifelse(p_value < 0.05, "*", format(round(p_value, 2)))))
-      } else {
-        format(round(p_value, 3), nsmall = 3)
-      },
-      y.position = max(data$delta) + (1:nrow(.)) * 0.05 * diff(range(data$delta)))
-  }
 
   # Sort groups with comparison group in the middle
   group_levels <- unique(data$group_label)
