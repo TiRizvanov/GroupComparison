@@ -76,25 +76,30 @@ create_violin_plot <- function(data, group_column, value_column, x_labels = NULL
     filter(delta < lower_ci | delta > upper_ci)
 
   # Calculate p-values for all pairwise comparisons if p_value is TRUE
-  if (p_value) {
-    pairwise_groups <- combn(levels(data$group_label), 2, simplify = FALSE)
-    p_values <- lapply(pairwise_groups, function(pair) {
-      data1 <- data %>% filter(group_label == pair[1])
-      data2 <- data %>% filter(group_label == pair[2])
-      p_value <- ks.test(data1$delta, data2$delta)$p.value
-      return(data.frame(group1 = pair[1], group2 = pair[2], p_value = p_value))
-    })
+if (p_value) {
+  pairwise_groups <- combn(levels(data$group_label), 2, simplify = FALSE)
+  p_values <- lapply(pairwise_groups, function(pair) {
+    data1 <- data %>% filter(group_label == pair[1])
+    data2 <- data %>% filter(group_label == pair[2])
+    p_value <- ks.test(data1$delta, data2$delta)$p.value
+    return(data.frame(group1 = pair[1], group2 = pair[2], p_value = p_value))
+  })
+  
+  # Adjust p-values using the Bonferroni method
+  p_values_df <- do.call(rbind, p_values)
+  p_values_df$p_value <- p.adjust(p_values_df$p_value, method = "bonferroni")
+  
+  p_values_df <- p_values_df %>%
+    mutate(label = if (p_value_format == "asterisk") {
+      ifelse(p_value < 0.001, "***",
+             ifelse(p_value < 0.01, "**",
+                    ifelse(p_value < 0.05, "*", "")))
+    } else {
+      format(round(p_value, 3), nsmall = 3)
+    },
+    y.position = max(data$delta) + (1:nrow(.)) * 0.05 * diff(range(data$delta)))
+}
 
-    p_values_df <- do.call(rbind, p_values) %>%
-      mutate(label = if (p_value_format == "asterisk") {
-        ifelse(p_value < 0.001, "***",
-               ifelse(p_value < 0.01, "**",
-                      ifelse(p_value < 0.05, "*", "")))
-      } else {
-        format(round(p_value, 3), nsmall = 3)
-      },
-      y.position = max(data$delta) + (1:nrow(.)) * 0.05 * diff(range(data$delta)))
-  }
 
   # Create the base violin plot
   p <- ggplot() +
