@@ -137,6 +137,9 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                           inherit.aes = FALSE)
   }
   
+  # Calculate data range
+  data_range <- diff(range(data$value))
+  
   # Conditionally add CIs (along with Q1, Q3 lines)
   if (CI) {
     p <- p +
@@ -191,11 +194,11 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
   if (n_obs) {
     p <- p +
       ggplot2::geom_text(data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
-                         aes(x = as.numeric(factor(group)) + 0.15, y = median - 0.14 * diff(range(data$value)), label = paste("n =", n)),
+                         aes(x = as.numeric(factor(group)) + 0.15, y = median - 0.05 * data_range, label = paste("n =", n)),
                          color = "black", size = 3,
                          inherit.aes = FALSE) +
       ggplot2::geom_text(data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
-                         aes(x = as.numeric(factor(group)) - 0.15, y = median - 0.14 * diff(range(data$value)), label = paste("n =", n)),
+                         aes(x = as.numeric(factor(group)) - 0.15, y = median - 0.05 * data_range, label = paste("n =", n)),
                          color = "black", size = 3,
                          inherit.aes = FALSE)
   }
@@ -268,27 +271,24 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                                               ifelse(p_values_df$p_value_adj < 0.05, "*", ""))),
                                 format(round(p_values_df$p_value_adj, 3), nsmall = 3))
     
-    # Determine y.position for plotting
-    # Get the max value for each (group, split) combination
-    max_values <- data %>%
-      group_by(group, split) %>%
-      summarize(max_value = max(value), .groups = "drop")
+    # Get the max value across all data
+    max_value_overall <- max(data$value)
+    data_range <- diff(range(data$value))
     
-    # Merge max_values into p_values_df
-    p_values_df <- p_values_df %>%
-      left_join(max_values, by = c("group1" = "group", "split1" = "split")) %>%
-      rename(max_value1 = max_value) %>%
-      left_join(max_values, by = c("group2" = "group", "split2" = "split")) %>%
-      rename(max_value2 = max_value)
+    # Set y.position for 'within' comparisons
+    y_position_within <- max_value_overall + 0.05 * data_range
     
-    # Set initial y.position as max of max_value1 and max_value2 plus offset
-    p_values_df <- p_values_df %>%
-      mutate(y.position = pmax(max_value1, max_value2) + 0.05 * diff(range(data$value)))
+    # Process 'within' comparisons
+    p_values_within <- p_values_df %>% filter(comparison_type == "within") %>%
+      mutate(y.position = y_position_within)
     
-    # Avoid overlapping brackets by incrementing y.position
-    p_values_df <- p_values_df %>%
-      arrange(y.position) %>%
-      mutate(y.position = y.position + (row_number() - 1) * 0.05 * diff(range(data$value)))
+    # Process 'across' comparisons
+    p_values_across <- p_values_df %>% filter(comparison_type == "across") %>%
+      arrange(max_value1, max_value2) %>%
+      mutate(y.position = y_position_within + 0.1 * data_range + (row_number() - 1) * 0.05 * data_range)
+    
+    # Combine the p-values
+    p_values_df <- bind_rows(p_values_within, p_values_across)
     
     # Compute x positions
     group_levels <- levels(factor(data$group))
@@ -317,15 +317,15 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                    color = "black",
                    inherit.aes = FALSE) +
       geom_segment(data = p_values_df,
-                   aes(x = x1, xend = x1, y = y.position, yend = y.position - 0.01 * diff(range(data$value))),
+                   aes(x = x1, xend = x1, y = y.position, yend = y.position - 0.01 * data_range),
                    color = "black",
                    inherit.aes = FALSE) +
       geom_segment(data = p_values_df,
-                   aes(x = x2, xend = x2, y = y.position, yend = y.position - 0.01 * diff(range(data$value))),
+                   aes(x = x2, xend = x2, y = y.position, yend = y.position - 0.01 * data_range),
                    color = "black",
                    inherit.aes = FALSE) +
       geom_text(data = p_values_df,
-                aes(x = x_label, y = y.position + 0.02 * diff(range(data$value)), label = label),
+                aes(x = x_label, y = y.position + 0.02 * data_range, label = label),
                 size = 3, color = "black",
                 inherit.aes = FALSE)
   }
