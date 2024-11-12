@@ -1,7 +1,7 @@
 #' Create a Split Violin Plot with Custom Elements and Options
 #'
 #' This function generates split violin plots with custom elements such as Q1, Q3, medians,
-#' confidence intervals, outliers, observation counts, absolute values, and p-values.
+#' confidence intervals, outliers, observation counts, absolute values, p-values, and a custom title.
 #' It allows for flexible inclusion or exclusion of these elements, and customization of axis labels.
 #'
 #' @param data A data frame containing the data to plot.
@@ -12,6 +12,7 @@
 #' @param labels An optional named vector of labels for the legend corresponding to the `split` values.
 #' @param x_lab A string representing the label for the x-axis (default: "Groups").
 #' @param y_lab A string representing the label for the y-axis (default: the `value_column` name).
+#' @param name An optional string for the title of the chart (default: empty).
 #' @param breaks An optional vector of breaks for the y-axis.
 #' @param limits An optional vector of length two defining the limits of the y-axis.
 #' @param outliers Logical, whether to include outliers (default TRUE).
@@ -37,15 +38,17 @@
 #' colors <- c("TRUE" = "#FF9999", "FALSE" = "#99CCFF")
 #' labels <- c("TRUE" = "first group", "FALSE" = "second group")
 #'
-#' # Generate the split violin plot with custom labels
+#' # Generate the split violin plot with custom labels and title
 #' p <- split_violin_plot(data, "group", "value", "split_criteria", colors, labels = labels,
 #'                        x_lab = "Groups", y_lab = bquote(bold(Delta ~ Log(activity))),
+#'                        name = "My Chart Title",
 #'                        outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
 #'                        abs = TRUE, p_value = TRUE, p_value_format = "asterisk")
 #' print(p)
 
 split_violin_plot <- function(data, group_column, value_column, split_column, colors, labels = NULL,
-                              x_lab = "Groups", y_lab = value_column, breaks = NULL, limits = NULL,
+                              x_lab = "Groups", y_lab = value_column, name = "",
+                              breaks = NULL, limits = NULL,
                               outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
                               abs = FALSE, p_value = TRUE, p_value_format = "asterisk") {
   
@@ -105,7 +108,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
   q_colors <- border_colors
   border_colors_reverse <- c(border_colors[2], border_colors[1])
   
-  # Base plot with custom axis labels
+  # Base plot with custom axis labels and optional title
   p <- ggplot2::ggplot(data_filtered, aes(x = factor(group), y = value, fill = split, color = split)) +
     geom_split_violin(trim = FALSE, size = 0.5, show.legend = FALSE, adjust = 2.2) +
     ggplot2::scale_fill_manual(values = colors) +
@@ -120,6 +123,11 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                    panel.grid.minor = element_blank(),
                    panel.spacing = unit(0.02, "lines"),
                    legend.position = "none")
+  
+  # Add title if provided
+  if (name != "") {
+    p <- p + ggplot2::ggtitle(name)
+  }
   
   # Conditionally add breaks and limits for y-axis
   if (!is.null(breaks) || !is.null(limits)) {
@@ -358,8 +366,19 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     textGrob(labels[2], x = 0.21, y = 0.8, hjust = 0)
   )
   
-  # Combine plot and legend
-  combined_plot <- grid.arrange(p, legend, ncol = 2, widths = c(3, 1))
+  # Create footer text
+  footer_text <- grobTree(
+    textGrob("pwc: ", x = 0.99, y = 0.01, hjust = 1, vjust = 0, gp = gpar(fontface = "plain", fontsize = 9)),
+    textGrob("Kolmogorov–Smirnov test", x = unit(0.99, "npc") - grobWidth(textGrob("; p.adjust: Bonferroni")), y = 0.01, hjust = 1, vjust = 0, gp = gpar(fontface = "bold", fontsize = 9)),
+    textGrob("; p.adjust: ", x = unit(0.99, "npc") - grobWidth(textGrob("Bonferroni")), y = 0.01, hjust = 1, vjust = 0, gp = gpar(fontface = "plain", fontsize = 9)),
+    textGrob("Bonferroni", x = 0.99, y = 0.01, hjust = 1, vjust = 0, gp = gpar(fontface = "bold", fontsize = 9))
+  )
+  
+  # Combine plot, legend, and footer
+  combined_plot <- grid.arrange(p, legend, footer_text, ncol = 2, nrow = 2,
+                                widths = c(3, 1), heights = c(9, 1),
+                                layout_matrix = rbind(c(1, 2),
+                                                      c(3, 3)))
   
   return(combined_plot)
 }
