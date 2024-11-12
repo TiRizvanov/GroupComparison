@@ -120,6 +120,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                    axis.title.y = element_text(size = 14, face = "bold"),
                    axis.text.x = element_text(size = 12, face = "bold"),
                    axis.text.y = element_text(size = 14, face = "bold"),
+                   plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
                    panel.grid.minor = element_blank(),
                    panel.spacing = unit(0.02, "lines"),
                    legend.position = "none")
@@ -366,13 +367,10 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     textGrob(labels[2], x = 0.21, y = 0.8, hjust = 0)
   )
   
-  # Create footer text
-  footer_text <- grobTree(
-    textGrob("pwc: ", x = 0.99, y = 0.01, hjust = 1, vjust = 0, gp = gpar(fontface = "plain", fontsize = 9)),
-    textGrob("Kolmogorov–Smirnov test", x = unit(0.99, "npc") - grobWidth(textGrob("; p.adjust: Bonferroni")), y = 0.01, hjust = 1, vjust = 0, gp = gpar(fontface = "bold", fontsize = 9)),
-    textGrob("; p.adjust: ", x = unit(0.99, "npc") - grobWidth(textGrob("Bonferroni")), y = 0.01, hjust = 1, vjust = 0, gp = gpar(fontface = "plain", fontsize = 9)),
-    textGrob("Bonferroni", x = 0.99, y = 0.01, hjust = 1, vjust = 0, gp = gpar(fontface = "bold", fontsize = 9))
-  )
+  # Create footer text with "Kolmogorov–Smirnov test" and "Bonferroni" in bold
+  footer_text <- textGrob(expression(paste("pwc: ", bold("Kolmogorov–Smirnov test"), "; p.adjust: ", bold("Bonferroni"))),
+                          x = 0.99, y = 0.01, hjust = 1, vjust = 0,
+                          gp = gpar(fontsize = 9))
   
   # Combine plot, legend, and footer
   combined_plot <- grid.arrange(p, legend, footer_text, ncol = 2, nrow = 2,
