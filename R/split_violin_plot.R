@@ -48,23 +48,23 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                               x_lab = "Groups", y_lab = value_column, breaks = NULL, limits = NULL,
                               outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
                               abs = FALSE, p_value = TRUE, p_value_format = "asterisk") {
-
+  
   # Rename columns for consistency
   data <- data %>%
     dplyr::rename(group = !!rlang::sym(group_column),
                   value = !!rlang::sym(value_column),
                   split = !!rlang::sym(split_column))
-
+  
   # If abs is TRUE, take absolute values
   if (abs) {
     data$value <- abs(data$value)
   }
-
+  
   # Default y-axis label is the value_column if not provided
   if (is.null(y_lab)) {
     y_lab <- value_column
   }
-
+  
   # Calculate summary statistics
   summary_stats <- data %>%
     dplyr::group_by(group, split) %>%
@@ -77,7 +77,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
       upper_ci = quantile(value, 0.975),
       .groups = 'drop'
     )
-
+  
   # Filter outliers based on CI
   if (abs) {
     # When abs = TRUE, we do not show outliers below lower_ci (near zero)
@@ -89,17 +89,17 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
       dplyr::left_join(summary_stats, by = c("group", "split")) %>%
       dplyr::filter(value < lower_ci | value > upper_ci)
   }
-
+  
   # Filter data for the plot (values inside the CI limits)
   data_filtered <- data %>%
     dplyr::left_join(summary_stats, by = c("group", "split")) %>%
     dplyr::filter(value >= lower_ci & value <= upper_ci)
-
+  
   # Define border and quantile colors (10% darker)
   border_colors <- colorspace::darken(colors, 0.15)
   q_colors <- border_colors
   border_colors_reverse <- c(border_colors[2], border_colors[1])
-
+  
   # Base plot with custom axis labels
   p <- ggplot2::ggplot(data_filtered, aes(x = factor(group), y = value, fill = split, color = split)) +
     geom_split_violin(trim = FALSE, size = 0.5, show.legend = FALSE, adjust = 2.2) +
@@ -115,7 +115,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                    panel.grid.minor = element_blank(),
                    panel.spacing = unit(0.02, "lines"),
                    legend.position = "none")
-
+  
   # Conditionally add breaks and limits for y-axis
   if (!is.null(breaks) || !is.null(limits)) {
     p <- p + scale_y_continuous(breaks = breaks, limits = limits, expand = c(0, 0))
@@ -123,80 +123,96 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     # When abs = TRUE and limits are not provided, set y-axis to start at 0
     p <- p + scale_y_continuous(limits = c(0, NA), expand = c(0, 0))
   }
-
+  
   # Conditionally add outliers
   if (outliers) {
     p <- p +
       ggplot2::geom_point(data = outlier_data %>% dplyr::filter(split == names(colors)[1]),
-                          aes(x = as.numeric(factor(group)) + 0.0625, y = value), color = border_colors[1], size = 1.5, shape = 21, fill = "white") +
+                          aes(x = as.numeric(factor(group)) + 0.0625, y = value),
+                          color = border_colors[1], size = 1.5, shape = 21, fill = "white",
+                          inherit.aes = FALSE) +
       ggplot2::geom_point(data = outlier_data %>% dplyr::filter(split == names(colors)[2]),
-                          aes(x = as.numeric(factor(group)) - 0.0625, y = value), color = border_colors[2], size = 1.5, shape = 21, fill = "white")
+                          aes(x = as.numeric(factor(group)) - 0.0625, y = value),
+                          color = border_colors[2], size = 1.5, shape = 21, fill = "white",
+                          inherit.aes = FALSE)
   }
-
+  
   # Conditionally add CIs (along with Q1, Q3 lines)
   if (CI) {
     p <- p +
       ggplot2::geom_segment(data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
                             aes(x = as.numeric(factor(group)), xend = as.numeric(factor(group)) + 0.125, y = Q1, yend = Q1),
-                            color = scales::alpha(q_colors[1], 0.9), size = 0.5) +
+                            color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+                            inherit.aes = FALSE) +
       ggplot2::geom_segment(data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
                             aes(x = as.numeric(factor(group)) - 0.125, xend = as.numeric(factor(group)), y = Q1, yend = Q1),
-                            color = scales::alpha(q_colors[2], 0.9), size = 0.5) +
+                            color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+                            inherit.aes = FALSE) +
       ggplot2::geom_segment(data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
                             aes(x = as.numeric(factor(group)), xend = as.numeric(factor(group)) + 0.125, y = Q3, yend = Q3),
-                            color = scales::alpha(q_colors[1], 0.9), size = 0.5) +
+                            color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+                            inherit.aes = FALSE) +
       ggplot2::geom_segment(data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
                             aes(x = as.numeric(factor(group)) - 0.125, xend = as.numeric(factor(group)), y = Q3, yend = Q3),
-                            color = scales::alpha(q_colors[2], 0.9), size = 0.5) +
+                            color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+                            inherit.aes = FALSE) +
       ggplot2::geom_segment(data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
                             aes(x = as.numeric(factor(group)) + 0.0625, xend = as.numeric(factor(group)) + 0.0625, y = Q1, yend = lower_ci),
-                            color = scales::alpha(q_colors[1], 0.9), size = 0.5) +
+                            color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+                            inherit.aes = FALSE) +
       ggplot2::geom_segment(data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
                             aes(x = as.numeric(factor(group)) - 0.0625, xend = as.numeric(factor(group)) - 0.0625, y = Q1, yend = lower_ci),
-                            color = scales::alpha(q_colors[2], 0.9), size = 0.5) +
+                            color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+                            inherit.aes = FALSE) +
       ggplot2::geom_segment(data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
                             aes(x = as.numeric(factor(group)) + 0.0625, xend = as.numeric(factor(group)) + 0.0625, y = Q3, yend = upper_ci),
-                            color = scales::alpha(q_colors[1], 0.9), size = 0.5) +
+                            color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+                            inherit.aes = FALSE) +
       ggplot2::geom_segment(data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
                             aes(x = as.numeric(factor(group)) - 0.0625, xend = as.numeric(factor(group)) - 0.0625, y = Q3, yend = upper_ci),
-                            color = scales::alpha(q_colors[2], 0.9), size = 0.5)
+                            color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+                            inherit.aes = FALSE)
   }
-
+  
   # Conditionally add medians
   if (median) {
     p <- p +
       ggplot2::geom_segment(data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
                             aes(x = as.numeric(factor(group)), xend = as.numeric(factor(group)) + 0.25, y = median, yend = median),
-                            color = "black", size = 0.5) +
+                            color = "black", size = 0.5,
+                            inherit.aes = FALSE) +
       ggplot2::geom_segment(data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
                             aes(x = as.numeric(factor(group)) - 0.25, xend = as.numeric(factor(group)), y = median, yend = median),
-                            color = "black", size = 0.5)
+                            color = "black", size = 0.5,
+                            inherit.aes = FALSE)
   }
-
+  
   # Conditionally add number of observations (n)
   if (n_obs) {
     p <- p +
       ggplot2::geom_text(data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
                          aes(x = as.numeric(factor(group)) + 0.15, y = median - 0.14 * diff(range(data$value)), label = paste("n =", n)),
-                         color = "black", size = 3) +
+                         color = "black", size = 3,
+                         inherit.aes = FALSE) +
       ggplot2::geom_text(data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
                          aes(x = as.numeric(factor(group)) - 0.15, y = median - 0.14 * diff(range(data$value)), label = paste("n =", n)),
-                         color = "black", size = 3)
+                         color = "black", size = 3,
+                         inherit.aes = FALSE)
   }
-
+  
   # Default labels use split values if not provided
   if (is.null(labels)) {
     labels <- setNames(names(colors), names(colors))
   }
-
+  
   # Conditionally calculate and add p-values
   if (p_value) {
     # Prepare groups and splits
     groups <- unique(data$group)
     splits <- unique(data$split)
-
+    
     p_values_list <- list()
-
+    
     # Comparisons between splits within the same group
     for (grp in groups) {
       grp_data <- data %>% filter(group == grp)
@@ -217,7 +233,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
         }
       }
     }
-
+    
     # Comparisons between same splits across groups
     for (spl in splits) {
       spl_data <- data %>% filter(split == spl)
@@ -238,54 +254,54 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
         }
       }
     }
-
+    
     # Combine p-values
     p_values_df <- do.call(rbind, p_values_list)
-
+    
     # Adjust p-values using Bonferroni correction
     p_values_df$p_value_adj <- p.adjust(p_values_df$p_value, method = "bonferroni")
-
+    
     # Generate labels
     p_values_df$label <- ifelse(p_value_format == "asterisk",
                                 ifelse(p_values_df$p_value_adj < 0.001, "***",
                                        ifelse(p_values_df$p_value_adj < 0.01, "**",
                                               ifelse(p_values_df$p_value_adj < 0.05, "*", ""))),
                                 format(round(p_values_df$p_value_adj, 3), nsmall = 3))
-
+    
     # Determine y.position for plotting
     # Get the max value for each (group, split) combination
     max_values <- data %>%
       group_by(group, split) %>%
       summarize(max_value = max(value), .groups = "drop")
-
+    
     # Merge max_values into p_values_df
     p_values_df <- p_values_df %>%
       left_join(max_values, by = c("group1" = "group", "split1" = "split")) %>%
       rename(max_value1 = max_value) %>%
       left_join(max_values, by = c("group2" = "group", "split2" = "split")) %>%
       rename(max_value2 = max_value)
-
+    
     # Set initial y.position as max of max_value1 and max_value2 plus offset
     p_values_df <- p_values_df %>%
       mutate(y.position = pmax(max_value1, max_value2) + 0.05 * diff(range(data$value)))
-
+    
     # Avoid overlapping brackets by incrementing y.position
     p_values_df <- p_values_df %>%
       arrange(y.position) %>%
       mutate(y.position = y.position + (row_number() - 1) * 0.05 * diff(range(data$value)))
-
+    
     # Compute x positions
     group_levels <- levels(factor(data$group))
     group_positions <- data.frame(group = group_levels, x = as.numeric(factor(group_levels)))
-
+    
     split_levels <- unique(data$split)
-
+    
     p_values_df <- p_values_df %>%
       left_join(group_positions, by = c("group1" = "group")) %>%
       rename(x1 = x) %>%
       left_join(group_positions, by = c("group2" = "group")) %>%
       rename(x2 = x)
-
+    
     # Adjust x positions based on split
     p_values_df <- p_values_df %>%
       mutate(
@@ -293,23 +309,27 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
         x2 = x2 + ifelse(split2 == split_levels[1], 0.15, -0.15),
         x_label = (x1 + x2) / 2
       )
-
+    
     # Add p-value brackets and labels to the plot
     p <- p +
       geom_segment(data = p_values_df,
                    aes(x = x1, xend = x2, y = y.position, yend = y.position),
-                   color = "black") +
+                   color = "black",
+                   inherit.aes = FALSE) +
       geom_segment(data = p_values_df,
                    aes(x = x1, xend = x1, y = y.position, yend = y.position - 0.01 * diff(range(data$value))),
-                   color = "black") +
+                   color = "black",
+                   inherit.aes = FALSE) +
       geom_segment(data = p_values_df,
                    aes(x = x2, xend = x2, y = y.position, yend = y.position - 0.01 * diff(range(data$value))),
-                   color = "black") +
+                   color = "black",
+                   inherit.aes = FALSE) +
       geom_text(data = p_values_df,
                 aes(x = x_label, y = y.position + 0.02 * diff(range(data$value)), label = label),
-                size = 3, color = "black")
+                size = 3, color = "black",
+                inherit.aes = FALSE)
   }
-
+  
   # Create custom legend
   legend <- grobTree(
     textGrob("Legend:", x = 0.1, y = 0.9, hjust = 0, gp = gpar(fontface = "bold")),
@@ -318,10 +338,10 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     rectGrob(x = 0.15, y = 0.8, width = 0.02, height = 0.02, gp = gpar(fill = colors[2], col = border_colors[2])),
     textGrob(labels[2], x = 0.21, y = 0.8, hjust = 0)
   )
-
+  
   # Combine plot and legend
   combined_plot <- grid.arrange(p, legend, ncol = 2, widths = c(3, 1))
-
+  
   return(combined_plot)
 }
 
