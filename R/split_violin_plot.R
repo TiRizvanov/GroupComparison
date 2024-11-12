@@ -55,6 +55,11 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                   value = !!rlang::sym(value_column),
                   split = !!rlang::sym(split_column))
   
+  # Ensure 'group' and 'split' are character
+  data <- data %>%
+    mutate(group = as.character(group),
+           split = as.character(split))
+  
   # If abs is TRUE, take absolute values
   if (abs) {
     data$value <- abs(data$value)
@@ -270,6 +275,20 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                                        ifelse(p_values_df$p_value_adj < 0.01, "**",
                                               ifelse(p_values_df$p_value_adj < 0.05, "*", ""))),
                                 format(round(p_values_df$p_value_adj, 3), nsmall = 3))
+    
+    # Get the max value for each (group, split) combination
+    max_values <- data %>%
+      group_by(group, split) %>%
+      summarize(max_value = max(value), .groups = "drop") %>%
+      mutate(group = as.character(group),
+             split = as.character(split))
+    
+    # Merge max_values into p_values_df
+    p_values_df <- p_values_df %>%
+      left_join(max_values, by = c("group1" = "group", "split1" = "split")) %>%
+      rename(max_value1 = max_value) %>%
+      left_join(max_values, by = c("group2" = "group", "split2" = "split")) %>%
+      rename(max_value2 = max_value)
     
     # Get the max value across all data
     max_value_overall <- max(data$value)
