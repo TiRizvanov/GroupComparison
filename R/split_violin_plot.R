@@ -36,12 +36,12 @@
 #' )
 #'
 #' colors <- c("TRUE" = "#FF9999", "FALSE" = "#99CCFF")
-#' labels <- c("TRUE" = "first group", "FALSE" = "second group")
+#' labels <- c("TRUE" = "Intra-site", "FALSE" = "Inter-site")
 #'
 #' # Generate the split violin plot with custom labels and title
 #' p <- split_violin_plot(data, "group", "value", "split_criteria", colors, labels = labels,
 #'                        x_lab = "Groups", y_lab = bquote(bold(Delta ~ Log(activity))),
-#'                        name = "My Chart Title",
+#'                        name = "Impact of Site Type on Activity",
 #'                        outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
 #'                        abs = TRUE, p_value = TRUE, p_value_format = "asterisk")
 #' print(p)
@@ -120,7 +120,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                    axis.title.y = element_text(size = 14, face = "bold"),
                    axis.text.x = element_text(size = 12, face = "bold"),
                    axis.text.y = element_text(size = 14, face = "bold"),
-                   plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+                   plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
                    panel.grid.minor = element_blank(),
                    panel.spacing = unit(0.02, "lines"),
                    legend.position = "none")
@@ -135,7 +135,11 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     p <- p + scale_y_continuous(breaks = breaks, limits = limits, expand = c(0, 0))
   } else if (abs) {
     # When abs = TRUE and limits are not provided, set y-axis to start at 0
-    p <- p + scale_y_continuous(limits = c(0, NA), expand = c(0, 0))
+    # Also, add some expansion to accommodate p-value annotations
+    p <- p + scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.25)))
+  } else {
+    # If abs = FALSE and no limits provided, use default expand with more space on top
+    p <- p + scale_y_continuous(expand = expansion(mult = c(0, 0.25)))
   }
   
   # Conditionally add outliers
@@ -307,16 +311,16 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     y_position_within <- max_value_overall + 0.05 * data_range
     
     # Process 'within' comparisons
-    p_values_within <- p_values_df %>% filter(comparison_type == "within") %>%
-      mutate(y.position = y_position_within)
+    p_values_within <- p_values_df %>% dplyr::filter(comparison_type == "within") %>%
+      dplyr::mutate(y.position = y_position_within)
     
     # Process 'across' comparisons
-    p_values_across <- p_values_df %>% filter(comparison_type == "across") %>%
-      arrange(max_value1, max_value2) %>%
-      mutate(y.position = y_position_within + 0.1 * data_range + (row_number() - 1) * 0.05 * data_range)
+    p_values_across <- p_values_df %>% dplyr::filter(comparison_type == "across") %>%
+      dplyr::arrange(max_value1, max_value2) %>%
+      dplyr::mutate(y.position = y_position_within + 0.1 * data_range + (dplyr::row_number() - 1) * 0.05 * data_range)
     
     # Combine the p-values
-    p_values_df <- bind_rows(p_values_within, p_values_across)
+    p_values_df <- dplyr::bind_rows(p_values_within, p_values_across)
     
     # Compute x positions
     group_levels <- levels(factor(data$group))
@@ -325,14 +329,14 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     split_levels <- unique(data$split)
     
     p_values_df <- p_values_df %>%
-      left_join(group_positions, by = c("group1" = "group")) %>%
-      rename(x1 = x) %>%
-      left_join(group_positions, by = c("group2" = "group")) %>%
-      rename(x2 = x)
+      dplyr::left_join(group_positions, by = c("group1" = "group")) %>%
+      dplyr::rename(x1 = x) %>%
+      dplyr::left_join(group_positions, by = c("group2" = "group")) %>%
+      dplyr::rename(x2 = x)
     
     # Adjust x positions based on split
     p_values_df <- p_values_df %>%
-      mutate(
+      dplyr::mutate(
         x1 = x1 + ifelse(split1 == split_levels[1], 0.15, -0.15),
         x2 = x2 + ifelse(split2 == split_levels[1], 0.15, -0.15),
         x_label = (x1 + x2) / 2
@@ -340,43 +344,50 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     
     # Add p-value brackets and labels to the plot
     p <- p +
-      geom_segment(data = p_values_df,
-                   aes(x = x1, xend = x2, y = y.position, yend = y.position),
-                   color = "black",
-                   inherit.aes = FALSE) +
-      geom_segment(data = p_values_df,
-                   aes(x = x1, xend = x1, y = y.position, yend = y.position - 0.01 * data_range),
-                   color = "black",
-                   inherit.aes = FALSE) +
-      geom_segment(data = p_values_df,
-                   aes(x = x2, xend = x2, y = y.position, yend = y.position - 0.01 * data_range),
-                   color = "black",
-                   inherit.aes = FALSE) +
-      geom_text(data = p_values_df,
-                aes(x = x_label, y = y.position + 0.02 * data_range, label = label),
-                size = 3, color = "black",
-                inherit.aes = FALSE)
+      ggplot2::geom_segment(data = p_values_df,
+                           aes(x = x1, xend = x2, y = y.position, yend = y.position),
+                           color = "black",
+                           inherit.aes = FALSE) +
+      ggplot2::geom_segment(data = p_values_df,
+                           aes(x = x1, xend = x1, y = y.position, yend = y.position - 0.01 * data_range),
+                           color = "black",
+                           inherit.aes = FALSE) +
+      ggplot2::geom_segment(data = p_values_df,
+                           aes(x = x2, xend = x2, y = y.position, yend = y.position - 0.01 * data_range),
+                           color = "black",
+                           inherit.aes = FALSE) +
+      ggplot2::geom_text(data = p_values_df,
+                        aes(x = x_label, y = y.position + 0.02 * data_range, label = label),
+                        size = 3, color = "black",
+                        inherit.aes = FALSE)
   }
   
   # Create custom legend
-  legend <- grobTree(
-    textGrob("Legend:", x = 0.1, y = 0.9, hjust = 0, gp = gpar(fontface = "bold")),
-    rectGrob(x = 0.15, y = 0.85, width = 0.02, height = 0.02, gp = gpar(fill = colors[1], col = border_colors[1])),
-    textGrob(labels[1], x = 0.21, y = 0.85, hjust = 0),
-    rectGrob(x = 0.15, y = 0.8, width = 0.02, height = 0.02, gp = gpar(fill = colors[2], col = border_colors[2])),
-    textGrob(labels[2], x = 0.21, y = 0.8, hjust = 0)
+  legend <- grid::grobTree(
+    grid::textGrob("Legend:", x = 0.1, y = 0.9, hjust = 0, gp = grid::gpar(fontface = "bold")),
+    grid::rectGrob(x = 0.15, y = 0.85, width = 0.02, height = 0.02,
+                  gp = grid::gpar(fill = colors[1], col = border_colors[1])),
+    grid::textGrob(labels[1], x = 0.21, y = 0.85, hjust = 0),
+    grid::rectGrob(x = 0.15, y = 0.8, width = 0.02, height = 0.02,
+                  gp = grid::gpar(fill = colors[2], col = border_colors[2])),
+    grid::textGrob(labels[2], x = 0.21, y = 0.8, hjust = 0)
   )
   
   # Create footer text with "Kolmogorov–Smirnov test" and "Bonferroni" in bold
-  footer_text <- textGrob(expression(paste("pwc: ", bold("Kolmogorov–Smirnov test"), "; p.adjust: ", bold("Bonferroni"))),
-                          x = 0.99, y = 0.01, hjust = 1, vjust = 0,
-                          gp = gpar(fontsize = 9))
+  footer_text <- grid::textGrob(expression(paste("pwc: ", bold("Kolmogorov–Smirnov test"), "; p.adjust: ", bold("Bonferroni"))),
+                                x = 0.99, y = 0.01, hjust = 1, vjust = 0,
+                                gp = grid::gpar(fontsize = 9))
   
   # Combine plot, legend, and footer
-  combined_plot <- grid.arrange(p, legend, footer_text, ncol = 2, nrow = 2,
-                                widths = c(3, 1), heights = c(9, 1),
-                                layout_matrix = rbind(c(1, 2),
-                                                      c(3, 3)))
+  combined_plot <- gridExtra::grid.arrange(
+    p, legend,
+    footer_text,
+    ncol = 2, nrow = 2,
+    widths = c(3, 1),
+    heights = c(10, 1.5),
+    layout_matrix = rbind(c(1, 2),
+                          c(3, 3))
+  )
   
   return(combined_plot)
 }
@@ -407,7 +418,6 @@ GeomSplitViolin <- ggplot2::ggproto("GeomSplitViolin", ggplot2::GeomViolin,
                                                          ggplot2::GeomPolygon$draw_panel(newdata, ...))
                                       }
                                     })
-
 
 geom_split_violin <- function(mapping = NULL, data = NULL, stat = "ydensity",
                               position = "identity", ..., draw_quantiles = NULL, trim = TRUE,
