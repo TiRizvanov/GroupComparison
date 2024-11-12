@@ -208,11 +208,11 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
   if (n_obs) {
     p <- p +
       ggplot2::geom_text(data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
-                         aes(x = as.numeric(factor(group)) + 0.15, y = median + 0.05 * data_range, label = paste("n =", n)),
+                         aes(x = as.numeric(factor(group)) + 0.15, y = median + 0.025 * data_range, label = paste("n =", n)),
                          color = "black", size = 3,
                          inherit.aes = FALSE) +
       ggplot2::geom_text(data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
-                         aes(x = as.numeric(factor(group)) - 0.15, y = median + 0.05 * data_range, label = paste("n =", n)),
+                         aes(x = as.numeric(factor(group)) - 0.15, y = median + 0.025 * data_range, label = paste("n =", n)),
                          color = "black", size = 3,
                          inherit.aes = FALSE)
   }
