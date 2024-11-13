@@ -3,6 +3,8 @@
 #' This function creates violin plots for different groups, with a specific comparison group
 #' highlighted. The comparison group is displayed in a different color, and the function can
 #' optionally calculate p-values for comparisons between the other groups and the comparison group.
+#' Additionally, it allows for absolute value transformation, adding a chart title, and includes
+#' footer text with statistical test information.
 #'
 #' @param data A data frame containing the data to plot.
 #' @param group_column A string representing the name of the column that defines the groups (x-axis).
@@ -21,9 +23,11 @@
 #' @param box_plot Logical, whether to include a boxplot inside the violin plot. Default is TRUE.
 #' @param outliers Logical, whether to include outliers on the plot. Default is TRUE.
 #' @param median Logical, whether to include the median point on the plot. Default is TRUE.
+#' @param abs Logical, whether to transform all data to their absolute values. Default is FALSE.
+#' @param name An optional string for the title of the chart (default: empty).
 #'
-#' @return A `ggplot2` object representing the violin plot.
-#' @import ggplot2 dplyr ggpubr rlang
+#' @return A `ggplot2` object representing the violin plot with custom annotations.
+#' @import ggplot2 dplyr ggpubr rlang gridExtra grid colorspace
 #' @export
 #'
 #' @examples
@@ -32,15 +36,28 @@
 #'   group = rep(c("A", "B", "C"), each = 100),
 #'   value = c(rnorm(100, mean = 0), rnorm(100, mean = 1), rnorm(100, mean = 2))
 #' )
-#' p <- violin_plots_with_comparison_group(data, "group", "value", comparison_group = "A")
+#' p <- violin_plots_with_comparison_group(
+#'   data, "group", "value", comparison_group = "A",
+#'   name = "Violin Plot Comparison",
+#'   abs = TRUE
+#' )
 #' print(p)
-
 violin_plots_with_comparison_group <- function(data, group_column, value_column, comparison_group,
                                                basic_color = "#8DA0CB80", comparison_color = "#66C2A580",
                                                x_labels = NULL, breaks = NULL, limits = NULL,
                                                outliers_color = "red", x_lab = "", y_lab = NULL,
                                                p_value = TRUE, p_value_format = "asterisk",
-                                               box_plot = TRUE, outliers = TRUE, median = TRUE) {
+                                               box_plot = TRUE, outliers = TRUE, median = TRUE,
+                                               abs = FALSE, name = "") {
+
+  # Load required packages
+  require(ggplot2)
+  require(dplyr)
+  require(ggpubr)
+  require(rlang)
+  require(gridExtra)
+  require(grid)
+  require(colorspace)
 
   # Rename columns for consistency
   data <- data %>%
@@ -56,31 +73,39 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
     stop("Comparison group is not found in the data.")
   }
 
-  # Calculate p-values for pairwise comparisons with the comparison group
-if (p_value) {
-  pairwise_groups <- setdiff(unique(data$group_label), comparison_group)
-  p_values <- lapply(pairwise_groups, function(group) {
-    data1 <- data %>% filter(group_label == group)
-    data2 <- data %>% filter(group_label == comparison_group)
-    p_value <- ks.test(data1$delta, data2$delta)$p.value
-    return(data.frame(group1 = group, group2 = comparison_group, p_value = p_value))
-  })
-  
-  # Adjust p-values using the Bonferroni method
-  p_values_df <- do.call(rbind, p_values)
-  p_values_df$p_value <- p.adjust(p_values_df$p_value, method = "bonferroni")
-  
-  p_values_df <- p_values_df %>%
-    mutate(label = if (p_value_format == "asterisk") {
-      ifelse(p_value < 0.001, "***",
-             ifelse(p_value < 0.01, "**",
-                    ifelse(p_value < 0.05, "*", format(round(p_value, 2)))))
-    } else {
-      format(round(p_value, 3), nsmall = 3)
-    },
-    y.position = max(data$delta) + (1:nrow(.)) * 0.05 * diff(range(data$delta)))
-}
+  # Transform to absolute values if abs = TRUE
+  if (abs) {
+    data <- data %>%
+      mutate(delta = abs(delta))
+  }
 
+  # Calculate p-values for pairwise comparisons with the comparison group
+  if (p_value) {
+    pairwise_groups <- setdiff(unique(data$group_label), comparison_group)
+    p_values <- lapply(pairwise_groups, function(group) {
+      data1 <- data %>% filter(group_label == group)
+      data2 <- data %>% filter(group_label == comparison_group)
+      # Perform Kolmogorov–Smirnov test
+      p_val <- ks.test(data1$delta, data2$delta)$p.value
+      return(data.frame(group1 = group, group2 = comparison_group, p_value = p_val))
+    })
+
+    # Combine and adjust p-values using the Bonferroni method
+    p_values_df <- do.call(rbind, p_values)
+    p_values_df$p_value_adj <- p.adjust(p_values_df$p_value, method = "bonferroni")
+
+    # Generate labels
+    p_values_df$label <- ifelse(p_value_format == "asterisk",
+                                ifelse(p_values_df$p_value_adj < 0.001, "***",
+                                       ifelse(p_values_df$p_value_adj < 0.01, "**",
+                                              ifelse(p_values_df$p_value_adj < 0.05, "*", format(round(p_values_df$p_value_adj, 2), nsmall = 2)))),
+                                format(round(p_values_df$p_value_adj, 3), nsmall = 3))
+
+    # Assign y.position for p-values
+    max_delta <- max(data$delta, na.rm = TRUE)
+    data_range <- diff(range(data$delta, na.rm = TRUE))
+    p_values_df$y.position <- max_delta + 0.05 * data_range + (1:nrow(p_values_df)) * 0.05 * data_range
+  }
 
   # Sort groups with comparison group in the middle
   group_levels <- unique(data$group_label)
@@ -106,54 +131,104 @@ if (p_value) {
 
   # Create a function to calculate 95% confidence interval limits
   calc_ci <- function(x) {
-    q <- quantile(x, probs = c(0.025, 0.975))
+    q <- quantile(x, probs = c(0.025, 0.975), na.rm = TRUE)
     return(q)
   }
 
   # Calculate the confidence intervals and identify outliers
-  data <- data %>%
+  summary_stats <- data %>%
     group_by(group_label) %>%
-    mutate(lower_ci = calc_ci(delta)[1],
-           upper_ci = calc_ci(delta)[2]) %>%
-    ungroup()
+    summarize(
+      median = median(delta, na.rm = TRUE),
+      Q1 = quantile(delta, 0.25, na.rm = TRUE),
+      Q3 = quantile(delta, 0.75, na.rm = TRUE),
+      n = n(),
+      lower_ci = ifelse(abs, 0, calc_ci(delta)[1]),
+      upper_ci = calc_ci(delta)[2],
+      .groups = 'drop'
+    )
 
   # Filter data for violin plot (excluding outliers)
   data_violin <- data %>%
+    left_join(summary_stats, by = "group_label") %>%
     filter(delta >= lower_ci & delta <= upper_ci)
 
   # Identify outliers
-  data_outliers <- data %>%
-    filter(delta < lower_ci | delta > upper_ci)
+  if (abs) {
+    data_outliers <- data %>%
+      left_join(summary_stats, by = "group_label") %>%
+      filter(delta > upper_ci)
+  } else {
+    data_outliers <- data %>%
+      left_join(summary_stats, by = "group_label") %>%
+      filter(delta < lower_ci | delta > upper_ci)
+  }
 
   # Create the base violin plot
   p <- ggplot() +
-    geom_violin(data = data_violin, aes(x = group_label, y = delta, fill = group_label), trim = FALSE, show.legend = FALSE, width = 0.8, adjust = 2.2) +
+    geom_violin(
+      data = data_violin,
+      aes(x = group_label, y = delta, fill = group_label),
+      trim = FALSE, show.legend = FALSE, width = 0.8, adjust = 2.2
+    ) +
     scale_fill_manual(values = group_colors) +
     labs(x = x_lab, y = y_lab) +
     theme_minimal() +
-    theme(axis.title.x = element_text(size = 14, face = "bold"),
-          axis.title.y = element_text(size = 14, face = "bold"),
-          axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, size = 12, face = "bold"),
-          axis.text.y = element_text(size = 14, face = "bold"),
-          panel.grid.minor = element_blank(),
-          panel.spacing = unit(0.02, "lines"))  # Further reduce space between plots
+    theme(
+      axis.title.x = element_text(size = 14, face = "bold"),
+      axis.title.y = element_text(size = 14, face = "bold"),
+      axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, size = 12, face = "bold"),
+      axis.text.y = element_text(size = 14, face = "bold"),
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+      panel.grid.minor = element_blank(),
+      panel.spacing = unit(0.02, "lines")
+    )
 
-  # Conditionally add elements based on user input
+  # Conditionally add boxplots
   if (box_plot) {
-    p <- p + geom_boxplot(data = data_violin, aes(x = group_label, y = delta), width = 0.1, outlier.shape = NA, color = "#4D4D4D", fill = "#4D4D4D", notch = FALSE, show.legend = FALSE)
+    p <- p + geom_boxplot(
+      data = data_violin,
+      aes(x = group_label, y = delta),
+      width = 0.1, outlier.shape = NA,
+      color = "#4D4D4D", fill = "#4D4D4D",
+      notch = FALSE, show.legend = FALSE
+    )
   }
 
+  # Conditionally add medians
   if (median) {
-    p <- p + stat_summary(data = data_violin, aes(x = group_label, y = delta), fun = "median", geom = "point", shape = 21, size = 2, fill = "white", color = "white", show.legend = FALSE)
+    p <- p + stat_summary(
+      data = data_violin,
+      aes(x = group_label, y = delta),
+      fun = "median",
+      geom = "point",
+      shape = 21, size = 2, fill = "white", color = "white",
+      show.legend = FALSE
+    )
   }
 
+  # Conditionally add outliers
   if (outliers) {
-    p <- p + geom_point(data = data_outliers, aes(x = group_label, y = delta), color = outliers_color, size = 1, show.legend = FALSE)
+    p <- p +
+      geom_point(
+        data = data_outliers,
+        aes(x = group_label, y = delta),
+        color = outliers_color, size = 1, show.legend = FALSE
+      )
   }
 
-  # Add p-values and comparison brackets if p_value is TRUE
+  # Conditionally add p-values and comparison brackets
   if (p_value) {
-    p <- p + stat_pvalue_manual(p_values_df, label = "label", tip.length = 0.01, step.increase = 0.01)
+    p <- p + ggpubr::stat_pvalue_manual(
+      p_values_df,
+      label = "label",
+      xmin = "group1",
+      xmax = "group2",
+      y.position = "y.position",
+      tip.length = 0.01,
+      step.increase = 0.05,
+      bracket.size = 0.5
+    )
   }
 
   # Apply breaks and limits to the y-axis if provided
@@ -167,5 +242,38 @@ if (p_value) {
   }
   p <- p + scale_x_discrete(labels = x_labels)
 
-  return(p)
+  # Create custom legend
+  legend <- grid::grobTree(
+    grid::textGrob("Legend:", x = 0.1, y = 0.9, hjust = 0, gp = grid::gpar(fontface = "bold")),
+    grid::rectGrob(x = 0.15, y = 0.85, width = 0.02, height = 0.02,
+                  gp = grid::gpar(fill = group_colors[comparison_group], col = darken(group_colors[comparison_group], 0.15))),
+    grid::textGrob(labels[comparison_group], x = 0.21, y = 0.85, hjust = 0),
+    grid::rectGrob(x = 0.15, y = 0.8, width = 0.02, height = 0.02,
+                  gp = grid::gpar(fill = setdiff(group_colors, group_colors[comparison_group]), 
+                                  col = darken(setdiff(group_colors, group_colors[comparison_group]), 0.15))),
+    grid::textGrob(setdiff(labels, labels[comparison_group]), x = 0.21, y = 0.8, hjust = 0)
+  )
+
+  # Create footer text with "Kolmogorov–Smirnov test" and "Bonferroni" in bold
+  footer_text <- grid::textGrob(
+    expression(paste("pwc: ", bold("Kolmogorov–Smirnov test"), "; p.adjust: ", bold("Bonferroni"))),
+    x = 0.99, y = 0.01, hjust = 1, vjust = 0,
+    gp = grid::gpar(fontsize = 9)
+  )
+
+  # Combine plot, legend, and footer
+  combined_plot <- gridExtra::grid.arrange(
+    p, legend,
+    footer_text,
+    ncol = 2, nrow = 2,
+    widths = c(3, 1),
+    heights = c(10, 1.5),
+    layout_matrix = rbind(c(1, 2),
+                          c(3, 3))
+  )
+
+  return(combined_plot)
 }
+
+#' @importFrom colorspace darken
+
