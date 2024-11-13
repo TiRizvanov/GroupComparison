@@ -12,7 +12,8 @@
 #' @param comparison_group A string representing the name of the group to be used as the comparison group.
 #' @param basic_color A string representing the color for the non-comparison groups. Default is "#8DA0CB80".
 #' @param comparison_color A string representing the color for the comparison group. Default is "#66C2A580".
-#' @param x_labels A character vector representing the custom labels for the x-axis groups. Default is `NULL`.
+#' @param x_labels A named character vector representing the custom labels for the x-axis groups. Default is `NULL`.
+#'                   If provided, names should correspond to group labels.
 #' @param breaks An optional numeric vector specifying the breaks on the y-axis. Default is `NULL`.
 #' @param limits An optional numeric vector of length two specifying the limits on the y-axis. Default is `NULL`.
 #' @param outliers_color A string representing the color of the outliers. Default is "red".
@@ -42,6 +43,7 @@
 #'   abs = TRUE
 #' )
 #' print(p)
+
 violin_plots_with_comparison_group <- function(data, group_column, value_column, comparison_group,
                                                basic_color = "#8DA0CB80", comparison_color = "#66C2A580",
                                                x_labels = NULL, breaks = NULL, limits = NULL,
@@ -129,6 +131,16 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
   names(group_colors) <- new_order
   group_colors[comparison_group] <- comparison_color
 
+  # Assign legend labels
+  if (!is.null(x_labels)) {
+    if (!all(names(x_labels) %in% levels(data$group_label))) {
+      stop("All names in x_labels must match the group labels in data.")
+    }
+    legend_labels <- x_labels
+  } else {
+    legend_labels <- setNames(as.character(levels(data$group_label)), levels(data$group_label))
+  }
+
   # Create a function to calculate 95% confidence interval limits
   calc_ci <- function(x) {
     q <- quantile(x, probs = c(0.025, 0.975), na.rm = TRUE)
@@ -184,6 +196,22 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
       panel.spacing = unit(0.02, "lines")
     )
 
+  # Add title if provided
+  if (name != "") {
+    p <- p + ggplot2::ggtitle(name)
+  }
+
+  # Conditionally add breaks and limits for y-axis
+  if (!is.null(breaks) || !is.null(limits)) {
+    p <- p + scale_y_continuous(breaks = breaks, limits = limits, expand = expansion(mult = c(0, 0.25)))
+  } else if (abs) {
+    # When abs = TRUE and limits are not provided, set y-axis to start at 0 with expansion
+    p <- p + scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.25)))
+  } else {
+    # If abs = FALSE and no limits provided, use default expand with more space on top
+    p <- p + scale_y_continuous(expand = expansion(mult = c(0, 0.25)))
+  }
+
   # Conditionally add boxplots
   if (box_plot) {
     p <- p + geom_boxplot(
@@ -231,14 +259,10 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
     )
   }
 
-  # Apply breaks and limits to the y-axis if provided
-  if (!is.null(breaks) || !is.null(limits)) {
-    p <- p + scale_y_continuous(breaks = breaks, limits = limits)
-  }
-
   # Use group names as x-axis labels if no custom labels are provided
   if (is.null(x_labels)) {
     x_labels <- levels(data$group_label)
+    names(x_labels) <- levels(data$group_label)
   }
   p <- p + scale_x_discrete(labels = x_labels)
 
@@ -246,12 +270,12 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
   legend <- grid::grobTree(
     grid::textGrob("Legend:", x = 0.1, y = 0.9, hjust = 0, gp = grid::gpar(fontface = "bold")),
     grid::rectGrob(x = 0.15, y = 0.85, width = 0.02, height = 0.02,
-                  gp = grid::gpar(fill = group_colors[comparison_group], col = darken(group_colors[comparison_group], 0.15))),
-    grid::textGrob(labels[comparison_group], x = 0.21, y = 0.85, hjust = 0),
+                  gp = grid::gpar(fill = group_colors[comparison_group], col = colorspace::darken(group_colors[comparison_group], 0.15))),
+    grid::textGrob(legend_labels[comparison_group], x = 0.21, y = 0.85, hjust = 0),
     grid::rectGrob(x = 0.15, y = 0.8, width = 0.02, height = 0.02,
                   gp = grid::gpar(fill = setdiff(group_colors, group_colors[comparison_group]), 
-                                  col = darken(setdiff(group_colors, group_colors[comparison_group]), 0.15))),
-    grid::textGrob(setdiff(labels, labels[comparison_group]), x = 0.21, y = 0.8, hjust = 0)
+                                  col = colorspace::darken(setdiff(group_colors, group_colors[comparison_group]), 0.15))),
+    grid::textGrob(setdiff(legend_labels, legend_labels[comparison_group]), x = 0.21, y = 0.8, hjust = 0)
   )
 
   # Create footer text with "Kolmogorov–Smirnov test" and "Bonferroni" in bold
@@ -276,4 +300,3 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
 }
 
 #' @importFrom colorspace darken
-
