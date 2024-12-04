@@ -184,6 +184,8 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
       axis.title.x = element_text(size = 14, face = "bold"),
       axis.title.y = element_text(size = 14, face = "bold"),
       axis.text.x = element_text(
+        angle = 30,       # Rotated for better readability
+        vjust = 1,
         vjust = 1,        # Adjusted vertical justification
         size = ifelse(n_obs, 10, 12),  # Smaller font if n_obs is TRUE
         face = "bold"
