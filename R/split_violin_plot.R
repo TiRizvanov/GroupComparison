@@ -24,7 +24,7 @@
 #' @param p_value_format A string, either "asterisk" or "numeric", to control how p-values are shown (default "asterisk").
 #' @param x_labels An optional named vector for renaming the groups on the x-axis. Names should correspond to the original group labels, and values are the new labels (can include \n for line breaks).
 #' @param x_labels_size A numeric value to set the size of the x-axis label text (default: 12).
-#' @param group_order An optional character vector specifying the order of groups on the x-axis. If provided, it overrides the default ordering based on the data.
+#' @param comparison_group An optional string specifying the group to compare against. If `NULL`, p-values are calculated as before (within-group split comparisons). If specified, additional p-values are calculated between the split halves of the comparison group and those of other groups.
 #'
 #' @return A ggplot2 object with the split violin plot and custom legend.
 #' @import ggplot2 dplyr gridExtra rlang colorspace grid
@@ -46,7 +46,6 @@
 #'   "DIFFERENT_OUTCOMES" = "Different Assay Type\nor Outcome",
 #'   "ASSAY_FORMAT_ISSUE" = "Unicellular organism"
 #' )
-#' group_order <- c("NO ISSUE", "DIFFERENT_TARGET_VARIANT", "DIFFERENT_OUTCOMES", "ASSAY_FORMAT_ISSUE")
 #'
 #' # Generate the split violin plot with custom labels and title
 #' p <- split_violin_plot(
@@ -55,9 +54,9 @@
 #'   name = "Impact of Site Type on Activity",
 #'   x_labels = x_labels,
 #'   x_labels_size = 10,
-#'   group_order = group_order,
+#'   comparison_group = "NO ISSUE",
 #'   outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
-#'   abs = FALSE, p_value = TRUE, p_value_format = "asterisk"
+#'   abs = TRUE, p_value = TRUE, p_value_format = "asterisk"
 #' )
 #' print(p)
 split_violin_plot <- function(data, group_column, value_column, split_column, colors, labels = NULL,
@@ -66,35 +65,22 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                               outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
                               abs = FALSE, p_value = TRUE, p_value_format = "asterisk",
                               x_labels = NULL, x_labels_size = 12,
-                              group_order = NULL) {
-  
-  # Load required packages
-  require(ggplot2)
-  require(dplyr)
-  require(rlang)
-  require(colorspace)
-  require(gridExtra)
-  require(grid)
+                              comparison_group = NULL) {
   
   # Rename columns for consistency
   data <- data %>%
-    dplyr::rename(
-      group = !!rlang::sym(group_column),
-      value = !!rlang::sym(value_column),
-      split = !!rlang::sym(split_column)
-    )
+    dplyr::rename(group = !!rlang::sym(group_column),
+                  value = !!rlang::sym(value_column),
+                  split = !!rlang::sym(split_column))
   
   # Ensure 'group' and 'split' are character
   data <- data %>%
-    mutate(
-      group = as.character(group),
-      split = as.character(split)
-    )
+    mutate(group = as.character(group),
+           split = as.character(split))
   
   # If abs is TRUE, take absolute values
   if (abs) {
-    data <- data %>%
-      mutate(value = abs(value))
+    data$value <- abs(data$value)
   }
   
   # Default y-axis label is the value_column if not provided
@@ -102,23 +88,16 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     y_lab <- value_column
   }
   
-  # If group_order is provided, set the factor levels accordingly
-  if (!is.null(group_order)) {
-    data$group <- factor(data$group, levels = group_order)
-  } else {
-    data$group <- factor(data$group)
-  }
-  
   # Calculate summary statistics
   summary_stats <- data %>%
     dplyr::group_by(group, split) %>%
     dplyr::summarize(
-      median = median(value, na.rm = TRUE),
-      Q1 = quantile(value, 0.25, na.rm = TRUE),
-      Q3 = quantile(value, 0.75, na.rm = TRUE),
+      median = median(value),
+      Q1 = quantile(value, 0.25),
+      Q3 = quantile(value, 0.75),
       n = dplyr::n(),
-      lower_ci = quantile(value, 0.025, na.rm = TRUE),
-      upper_ci = quantile(value, 0.975, na.rm = TRUE),
+      lower_ci = quantile(value, 0.025),
+      upper_ci = quantile(value, 0.975),
       .groups = 'drop'
     )
   
@@ -173,34 +152,20 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     p <- p + ggplot2::ggtitle(name)
   }
   
-  # Automatically adjust y-axis limits based on outliers
-  if (is.null(limits)) {
-    if (!abs) {
-      # When abs = FALSE, set limits slightly beyond min and max, including outliers
-      min_outlier <- min(outlier_data$value, na.rm = TRUE)
-      max_outlier <- max(outlier_data$value, na.rm = TRUE)
-      current_min <- min(data$value, na.rm = TRUE)
-      current_max <- max(data$value, na.rm = TRUE)
-      
-      # Determine new y-axis limits
-      new_min <- ifelse(is.finite(min_outlier), min_outlier * 1.02, current_min * 0.98)
-      new_max <- ifelse(is.finite(max_outlier), max_outlier * 1.02, current_max * 1.02)
-      
-      p <- p + scale_y_continuous(breaks = breaks, limits = c(new_min, new_max), expand = c(0, 0))
-    } else {
-      # When abs = TRUE, set y-axis to start slightly below the minimal value inside the CI
-      current_min <- min(data_filtered$value, na.rm = TRUE)
-      current_max <- max(data_filtered$value, na.rm = TRUE)
-      new_min <- ifelse(is.finite(current_min), current_min * 0.98, 0)
-      new_max <- current_max * 1.02
-      p <- p + scale_y_continuous(breaks = breaks, limits = c(new_min, new_max), expand = c(0, 0))
-    }
-  } else {
+  # Conditionally add breaks and limits for y-axis
+  if (!is.null(breaks) || !is.null(limits)) {
     p <- p + scale_y_continuous(breaks = breaks, limits = limits, expand = c(0, 0))
+  } else if (abs) {
+    # When abs = TRUE and limits are not provided, set y-axis to start at 0
+    # Also, add some expansion to accommodate p-value annotations
+    p <- p + scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.25)))
+  } else {
+    # If abs = FALSE and no limits provided, use default expand with more space on top
+    p <- p + scale_y_continuous(expand = expansion(mult = c(0, 0.25)))
   }
   
   # Conditionally add outliers
-  if (outliers && nrow(outlier_data) > 0) {
+  if (outliers) {
     p <- p +
       ggplot2::geom_point(
         data = outlier_data %>% dplyr::filter(split == names(colors)[1]),
@@ -216,7 +181,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
       )
   }
   
-  # Calculate data range for positioning annotations
+  # Calculate data range
   data_range <- diff(range(data$value, na.rm = TRUE))
   
   # Conditionally add CIs (along with Q1, Q3 lines)
@@ -385,38 +350,41 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
         for (pair in split_pairs) {
           data1 <- grp_data %>% filter(split == pair[1]) %>% pull(value)
           data2 <- grp_data %>% filter(split == pair[2]) %>% pull(value)
-          if (length(unique(data1)) > 1 || length(unique(data2)) > 1) {  # Ensure variability for ks.test
-            p_val <- tryCatch(ks.test(data1, data2)$p.value, error = function(e) NA)
-            p_values_list <- append(p_values_list, list(data.frame(
-              group1 = grp,
-              split1 = pair[1],
-              group2 = grp,
-              split2 = pair[2],
-              p_value = p_val,
-              comparison_type = "within"
-            )))
-          }
+          p_val <- ks.test(data1, data2)$p.value
+          p_values_list <- append(p_values_list, list(data.frame(
+            group1 = grp,
+            split1 = pair[1],
+            group2 = grp,
+            split2 = pair[2],
+            p_value = p_val,
+            comparison_type = "within"
+          )))
         }
       }
     }
     
-    # Comparisons between same splits across groups
-    for (spl in splits) {
-      spl_data <- data %>% filter(split == spl)
-      if (length(unique(spl_data$group)) > 1) {
-        group_pairs <- combn(unique(spl_data$group), 2, simplify = FALSE)
-        for (pair in group_pairs) {
-          data1 <- spl_data %>% filter(group == pair[1]) %>% pull(value)
-          data2 <- spl_data %>% filter(group == pair[2]) %>% pull(value)
-          if (length(unique(data1)) > 1 || length(unique(data2)) > 1) {  # Ensure variability for ks.test
-            p_val <- tryCatch(ks.test(data1, data2)$p.value, error = function(e) NA)
+    # If comparison_group is specified, add comparisons between it and other groups
+    if (!is.null(comparison_group)) {
+      if (!(comparison_group %in% groups)) {
+        stop("The specified comparison_group is not present in the data.")
+      }
+      other_groups <- setdiff(groups, comparison_group)
+      for (grp in other_groups) {
+        for (spl in splits) {
+          # Get data for comparison_group split
+          comp_data <- data %>% filter(group == comparison_group, split == spl) %>% pull(value)
+          # Get data for current group split
+          grp_data_split <- data %>% filter(group == grp, split == spl) %>% pull(value)
+          # Perform KS test
+          if (length(grp_data_split) > 0 && length(comp_data) > 0) {
+            p_val <- ks.test(comp_data, grp_data_split)$p.value
             p_values_list <- append(p_values_list, list(data.frame(
-              group1 = pair[1],
+              group1 = comparison_group,
               split1 = spl,
-              group2 = pair[2],
+              group2 = grp,
               split2 = spl,
               p_value = p_val,
-              comparison_type = "across"
+              comparison_type = "comparison"
             )))
           }
         }
@@ -427,144 +395,137 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     if (length(p_values_list) > 0) {
       p_values_df <- do.call(rbind, p_values_list)
       
-      # Remove NA p-values
-      p_values_df <- p_values_df %>% dplyr::filter(!is.na(p_value))
+      # Adjust p-values using Bonferroni correction
+      p_values_df$p_value_adj <- p.adjust(p_values_df$p_value, method = "bonferroni")
       
-      if (nrow(p_values_df) > 0) {
-        # Adjust p-values using Bonferroni correction
-        p_values_df$p_value_adj <- p.adjust(p_values_df$p_value, method = "bonferroni")
-        
-        # Generate labels
-        p_values_df$label <- ifelse(p_value_format == "asterisk",
-                                    ifelse(p_values_df$p_value_adj < 0.001, "***",
-                                           ifelse(p_values_df$p_value_adj < 0.01, "**",
-                                                  ifelse(p_values_df$p_value_adj < 0.05, "*", ""))),
-                                    format(round(p_values_df$p_value_adj, 3), nsmall = 3))
-        
-        # Get the max value for each (group, split) combination
-        max_values <- data %>%
-          group_by(group, split) %>%
-          summarize(max_value = max(value, na.rm = TRUE), .groups = "drop") %>%
-          mutate(group = as.character(group),
-                 split = as.character(split))
-        
-        # Merge max_values into p_values_df
-        p_values_df <- p_values_df %>%
-          dplyr::left_join(max_values, by = c("group1" = "group", "split1" = "split")) %>%
-          dplyr::rename(max_value1 = max_value) %>%
-          dplyr::left_join(max_values, by = c("group2" = "group", "split2" = "split")) %>%
-          dplyr::rename(max_value2 = max_value)
-        
-        # Get the max value across all data
-        max_value_overall <- max(data$value, na.rm = TRUE)
-        data_range <- diff(range(data$value, na.rm = TRUE))
-        
-        # Set y.position for 'within' comparisons
-        y_position_within <- max_value_overall + 0.05 * data_range
-        
-        # Process 'within' comparisons
-        p_values_within <- p_values_df %>% dplyr::filter(comparison_type == "within") %>%
-          dplyr::mutate(y.position = y_position_within)
-        
-        # Process 'across' comparisons
-        p_values_across <- p_values_df %>% dplyr::filter(comparison_type == "across") %>%
-          dplyr::arrange(max_value1, max_value2) %>%
-          dplyr::mutate(y.position = y_position_within + 0.1 * data_range + (dplyr::row_number() - 1) * 0.05 * data_range)
-        
-        # Combine the p-values
-        p_values_df <- dplyr::bind_rows(p_values_within, p_values_across)
-        
-        # Compute x positions
-        group_levels <- levels(factor(data$group, levels = levels(data$group)))
-        group_positions <- data.frame(group = group_levels, x = as.numeric(factor(group_levels)))
-        
-        split_levels <- unique(data$split)
-        
-        p_values_df <- p_values_df %>%
-          dplyr::left_join(group_positions, by = c("group1" = "group")) %>%
-          dplyr::rename(x1 = x) %>%
-          dplyr::left_join(group_positions, by = c("group2" = "group")) %>%
-          dplyr::rename(x2 = x)
-        
-        # Adjust x positions based on split
-        p_values_df <- p_values_df %>%
-          dplyr::mutate(
-            x1 = x1 + ifelse(split1 == splits[1], 0.15, -0.15),
-            x2 = x2 + ifelse(split2 == splits[1], 0.15, -0.15),
-            x_label = (x1 + x2) / 2
+      # Generate labels
+      p_values_df$label <- ifelse(p_value_format == "asterisk",
+                                  ifelse(p_values_df$p_value_adj < 0.001, "***",
+                                         ifelse(p_values_df$p_value_adj < 0.01, "**",
+                                                ifelse(p_values_df$p_value_adj < 0.05, "*", ""))),
+                                  format(round(p_values_df$p_value_adj, 3), nsmall = 3))
+      
+      # Get the max value for each (group, split) combination
+      max_values <- data %>%
+        group_by(group, split) %>%
+        summarize(max_value = max(value, na.rm = TRUE), .groups = "drop") %>%
+        mutate(group = as.character(group),
+               split = as.character(split))
+      
+      # Merge max_values into p_values_df
+      p_values_df <- p_values_df %>%
+        dplyr::left_join(max_values, by = c("group1" = "group", "split1" = "split")) %>%
+        dplyr::rename(max_value1 = max_value) %>%
+        dplyr::left_join(max_values, by = c("group2" = "group", "split2" = "split")) %>%
+        dplyr::rename(max_value2 = max_value)
+      
+      # Get the max value across all data
+      max_value_overall <- max(data$value, na.rm = TRUE)
+      data_range <- diff(range(data$value, na.rm = TRUE))
+      
+      # Initialize y.position based on comparison type
+      p_values_df <- p_values_df %>%
+        dplyr::mutate(
+          y.position = case_when(
+            comparison_type == "within" ~ max_value_overall + 0.05 * data_range + (row_number() - 1) * 0.05 * data_range,
+            comparison_type == "comparison" ~ max_value_overall + 0.05 * data_range + 
+              (nrow(p_values_df) - length(other_groups) * length(splits)) + 
+              (row_number() - 1) * 0.05 * data_range,
+            TRUE ~ max_value_overall + 0.05 * data_range
           )
-        
-        # Add p-value brackets and labels to the plot
-        p <- p +
-          ggplot2::geom_segment(
-            data = p_values_df,
-            aes(x = x1, xend = x2, y = y.position, yend = y.position),
-            color = "black",
-            inherit.aes = FALSE
-          ) +
-          ggplot2::geom_segment(
-            data = p_values_df,
-            aes(x = x1, xend = x1, y = y.position, yend = y.position - 0.01 * data_range),
-            color = "black",
-            inherit.aes = FALSE
-          ) +
-          ggplot2::geom_segment(
-            data = p_values_df,
-            aes(x = x2, xend = x2, y = y.position, yend = y.position - 0.01 * data_range),
-            color = "black",
-            inherit.aes = FALSE
-          ) +
-          ggplot2::geom_text(
-            data = p_values_df,
-            aes(x = x_label, y = y.position + 0.02 * data_range, label = label),
-            size = 3, color = "black",
-            inherit.aes = FALSE
-          )
-      }
-  
-  # Create custom legend if labels are provided
-  if (!is.null(labels)) {
-    legend <- grid::grobTree(
-      grid::textGrob("Legend:", x = 0.1, y = 0.9, hjust = 0, gp = grid::gpar(fontface = "bold")),
-      grid::rectGrob(x = 0.15, y = 0.85, width = 0.02, height = 0.02,
-                    gp = grid::gpar(fill = colors[1], col = border_colors[1])),
-      grid::textGrob(labels[1], x = 0.21, y = 0.85, hjust = 0),
-      grid::rectGrob(x = 0.15, y = 0.8, width = 0.02, height = 0.02,
-                    gp = grid::gpar(fill = colors[2], col = border_colors[2])),
-      grid::textGrob(labels[2], x = 0.21, y = 0.8, hjust = 0)
+        )
+      
+      # Compute x positions
+      group_levels <- levels(factor(data$group))
+      group_positions <- data.frame(group = group_levels, x = as.numeric(factor(group_levels)))
+      
+      split_levels <- unique(data$split)
+      
+      p_values_df <- p_values_df %>%
+        dplyr::left_join(group_positions, by = c("group1" = "group")) %>%
+        dplyr::rename(x1 = x) %>%
+        dplyr::left_join(group_positions, by = c("group2" = "group")) %>%
+        dplyr::rename(x2 = x)
+      
+      # Adjust x positions based on split
+      p_values_df <- p_values_df %>%
+        dplyr::mutate(
+          x1 = x1 + ifelse(split1 == split_levels[1], 0.15, -0.15),
+          x2 = x2 + ifelse(split2 == split_levels[1], 0.15, -0.15),
+          x_label = (x1 + x2) / 2
+        )
+      
+      # Add p-value brackets and labels to the plot
+      p <- p +
+        ggplot2::geom_segment(
+          data = p_values_df,
+          aes(x = x1, xend = x2, y = y.position, yend = y.position),
+          color = "black",
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = p_values_df,
+          aes(x = x1, xend = x1, y = y.position, yend = y.position - 0.01 * data_range),
+          color = "black",
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = p_values_df,
+          aes(x = x2, xend = x2, y = y.position, yend = y.position - 0.01 * data_range),
+          color = "black",
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_text(
+          data = p_values_df,
+          aes(x = x_label, y = y.position + 0.02 * data_range, label = label),
+          size = 3, color = "black",
+          inherit.aes = FALSE
+        )
+    }
+    
+    # Create custom legend if labels are provided
+    if (!is.null(labels)) {
+      legend <- grid::grobTree(
+        grid::textGrob("Legend:", x = 0.1, y = 0.9, hjust = 0, gp = grid::gpar(fontface = "bold")),
+        grid::rectGrob(x = 0.15, y = 0.85, width = 0.02, height = 0.02,
+                      gp = grid::gpar(fill = colors[1], col = border_colors[1])),
+        grid::textGrob(labels[1], x = 0.21, y = 0.85, hjust = 0),
+        grid::rectGrob(x = 0.15, y = 0.8, width = 0.02, height = 0.02,
+                      gp = grid::gpar(fill = colors[2], col = border_colors[2])),
+        grid::textGrob(labels[2], x = 0.21, y = 0.8, hjust = 0)
+      )
+    } else {
+      legend <- NULL
+    }
+    
+    # Create footer text with "Kolmogorov–Smirnov test" and "Bonferroni" in bold
+    footer_text <- grid::textGrob(
+      expression(paste("pwc: ", bold("Kolmogorov–Smirnov test"), "; p.adjust: ", bold("Bonferroni"))),
+      x = 0.99, y = 0.01, hjust = 1, vjust = 0,
+      gp = grid::gpar(fontsize = 9)
     )
-  } else {
-    legend <- NULL
-  }
-  
-  # Create footer text with "Kolmogorov–Smirnov test" and "Bonferroni" in bold
-  footer_text <- grid::textGrob(
-    expression(paste("pwc: ", bold("Kolmogorov–Smirnov test"), "; p.adjust: ", bold("Bonferroni"))),
-    x = 0.99, y = 0.01, hjust = 1, vjust = 0,
-    gp = grid::gpar(fontsize = 9)
-  )
-  
-  # Combine plot, legend, and footer
-  if (!is.null(legend)) {
-    combined_plot <- gridExtra::grid.arrange(
-      p, legend,
-      footer_text,
-      ncol = 2, nrow = 2,
-      widths = c(3, 1),
-      heights = c(10, 1.5),
-      layout_matrix = rbind(c(1, 2),
-                            c(3, 3))
-    )
-  } else {
-    combined_plot <- gridExtra::grid.arrange(
-      p,
-      footer_text,
-      ncol = 1, nrow = 2,
-      heights = c(10, 1.5)
-    )
-  }
-  
-  return(combined_plot)
+    
+    # Combine plot, legend, and footer
+    if (!is.null(legend)) {
+      combined_plot <- gridExtra::grid.arrange(
+        p, legend,
+        footer_text,
+        ncol = 2, nrow = 2,
+        widths = c(3, 1),
+        heights = c(10, 1.5),
+        layout_matrix = rbind(c(1, 2),
+                              c(3, 3))
+      )
+    } else {
+      combined_plot <- gridExtra::grid.arrange(
+        p,
+        footer_text,
+        ncol = 1, nrow = 2,
+        heights = c(10, 1.5)
+      )
+    }
+    
+    return(combined_plot)
 }
 
 # Custom GeomSplitViolin and geom_split_violin function
