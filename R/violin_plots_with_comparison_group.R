@@ -175,7 +175,7 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
       trim = FALSE,
       show.legend = FALSE,
       width = 0.8,
-      adjust = 1.5  # Adjusted for better smoothing; tweak as needed
+      adjust = 2.2  # Adjusted for better smoothing; tweak as needed
     ) +
     scale_fill_manual(values = group_colors) +
     labs(x = x_lab, y = y_lab) +
@@ -184,9 +184,9 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
       axis.title.x = element_text(size = 14, face = "bold"),
       axis.title.y = element_text(size = 14, face = "bold"),
       axis.text.x = element_text(
-        angle = 45,       # Rotated for better readability
-        vjust = 1,        # Adjusted vertical justification
-        hjust = 1,        # Adjusted horizontal justification
+        angle = 30,       # Rotated for better readability
+        vjust = 1,
+        hjust = 1,  
         size = ifelse(n_obs, 10, 12),  # Smaller font if n_obs is TRUE
         face = "bold"
       ),
