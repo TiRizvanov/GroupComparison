@@ -23,7 +23,6 @@
 #' @param outliers Logical, whether to include outliers on the plot. Default is TRUE.
 #' @param median Logical, whether to include the median point on the plot. Default is TRUE.
 #' @param abs Logical, whether to use absolute values (default FALSE).
-#' @param n_obs Logical, whether to display the number of observations per group on the x-axis labels. Default is FALSE.
 #'
 #' @return A combined plot object representing the violin plot with footer text.
 #' @import ggplot2 dplyr ggpubr rlang grid gridExtra
@@ -35,7 +34,7 @@
 #'   group = rep(c("A", "B", "C"), each = 100),
 #'   value = c(rnorm(100, mean = 0), rnorm(100, mean = 1), rnorm(100, mean = 2))
 #' )
-#' p <- violin_plots_with_comparison_group(data, "group", "value", comparison_group = "A", name = "My Violin Plot", n_obs = TRUE)
+#' p <- violin_plots_with_comparison_group(data, "group", "value", comparison_group = "A", name = "My Violin Plot")
 #' print(p)
 
 violin_plots_with_comparison_group <- function(data, group_column, value_column, comparison_group,
@@ -44,7 +43,7 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
                                                outliers_color = "red", x_lab = "", y_lab = NULL,
                                                name = "", p_value = TRUE, p_value_format = "asterisk",
                                                box_plot = TRUE, outliers = TRUE, median = TRUE,
-                                               abs = FALSE, n_obs = FALSE) {  # Added n_obs parameter
+                                               abs = FALSE) {
 
   # Rename columns for consistency
   data <- data %>%
@@ -71,14 +70,14 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
     p_values <- lapply(pairwise_groups, function(group) {
       data1 <- data %>% filter(group_label == group)
       data2 <- data %>% filter(group_label == comparison_group)
-      p_val <- ks.test(data1$delta, data2$delta)$p.value
-      return(data.frame(group1 = group, group2 = comparison_group, p_value = p_val))
+      p_value <- ks.test(data1$delta, data2$delta)$p.value
+      return(data.frame(group1 = group, group2 = comparison_group, p_value = p_value))
     })
-
+    
     # Adjust p-values using the Bonferroni method
     p_values_df <- do.call(rbind, p_values)
     p_values_df$p_value <- p.adjust(p_values_df$p_value, method = "bonferroni")
-
+    
     p_values_df <- p_values_df %>%
       mutate(label = if (p_value_format == "asterisk") {
         ifelse(p_value < 0.001, "***",
@@ -87,7 +86,7 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
       } else {
         format(round(p_value, 3), nsmall = 3)
       },
-      y.position = max(data$delta, na.rm = TRUE) + (1:nrow(.)) * 0.05 * diff(range(data$delta, na.rm = TRUE)))
+      y.position = max(data$delta) + (1:nrow(.)) * 0.05 * diff(range(data$delta)))
   }
 
   # Sort groups with comparison group in the middle
@@ -144,52 +143,16 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
       filter(delta < lower_ci | delta > upper_ci)
   }
 
-  # If n_obs is TRUE, calculate counts and modify x_labels
-  if (n_obs) {
-    counts <- data %>%
-      group_by(group_label) %>%
-      summarize(n = n()) %>%
-      ungroup()
-
-    # Merge counts with x_labels
-    if (is.null(x_labels)) {
-      x_labels <- setNames(as.character(counts$n), counts$group_label)
-      # Convert to multi-line labels
-      x_labels <- paste0(levels(data$group_label), "\n(", x_labels, ")")
-      names(x_labels) <- levels(data$group_label)
-    } else {
-      # Ensure x_labels are named correctly
-      if (!all(names(x_labels) %in% counts$group_label)) {
-        stop("All names in x_labels must match group labels in data.")
-      }
-      # Append counts to the existing labels
-      x_labels <- paste0(x_labels, "\n(", counts$n[match(names(x_labels), counts$group_label)], ")")
-    }
-  }
-
   # Create the base violin plot
   p <- ggplot() +
-    geom_violin(
-      data = data_violin,
-      aes(x = group_label, y = delta, fill = group_label),
-      trim = FALSE,
-      show.legend = FALSE,
-      width = 0.8,
-      adjust = 2.2  # Adjusted for better smoothing; tweak as needed
-    ) +
+    geom_violin(data = data_violin, aes(x = group_label, y = delta, fill = group_label), trim = FALSE, show.legend = FALSE, width = 0.8, adjust = 2.2) +
     scale_fill_manual(values = group_colors) +
     labs(x = x_lab, y = y_lab) +
     theme_minimal() +
     theme(
       axis.title.x = element_text(size = 14, face = "bold"),
       axis.title.y = element_text(size = 14, face = "bold"),
-      axis.text.x = element_text(
-        angle = 30,       # Rotated for better readability
-        vjust = 1,
-        hjust = 1,  
-        size = ifelse(n_obs, 10, 12),  # Smaller font if n_obs is TRUE
-        face = "bold"
-      ),
+      axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, size = 12, face = "bold"),
       axis.text.y = element_text(size = 14, face = "bold"),
       plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
       panel.grid.minor = element_blank(),
@@ -203,50 +166,20 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
 
   # Conditionally add elements based on user input
   if (box_plot) {
-    p <- p + geom_boxplot(
-      data = data_violin,
-      aes(x = group_label, y = delta),
-      width = 0.1,
-      outlier.shape = NA,
-      color = "#4D4D4D",
-      fill = "#4D4D4D",
-      notch = FALSE,
-      show.legend = FALSE
-    )
+    p <- p + geom_boxplot(data = data_violin, aes(x = group_label, y = delta), width = 0.1, outlier.shape = NA, color = "#4D4D4D", fill = "#4D4D4D", notch = FALSE, show.legend = FALSE)
   }
 
   if (median) {
-    p <- p + stat_summary(
-      data = data_violin,
-      aes(x = group_label, y = delta),
-      fun = "median",
-      geom = "point",
-      shape = 21,
-      size = 2,
-      fill = "white",
-      color = "black",
-      show.legend = FALSE
-    )
+    p <- p + stat_summary(data = data_violin, aes(x = group_label, y = delta), fun = "median", geom = "point", shape = 21, size = 2, fill = "white", color = "white", show.legend = FALSE)
   }
 
   if (outliers) {
-    p <- p + geom_point(
-      data = data_outliers,
-      aes(x = group_label, y = delta),
-      color = outliers_color,
-      size = 1,
-      show.legend = FALSE
-    )
+    p <- p + geom_point(data = data_outliers, aes(x = group_label, y = delta), color = outliers_color, size = 1, show.legend = FALSE)
   }
 
   # Add p-values and comparison brackets if p_value is TRUE
   if (p_value) {
-    p <- p + ggpubr::stat_pvalue_manual(
-      p_values_df,
-      label = "label",
-      tip.length = 0.01,
-      step.increase = 0.05
-    )
+    p <- p + ggpubr::stat_pvalue_manual(p_values_df, label = "label", tip.length = 0.01, step.increase = 0.05)
   }
 
   # Apply breaks and limits to the y-axis if provided
@@ -263,11 +196,9 @@ violin_plots_with_comparison_group <- function(data, group_column, value_column,
   p <- p + scale_x_discrete(labels = x_labels)
 
   # Create footer text with "Kolmogorov–Smirnov test" and "Bonferroni" in bold
-  footer_text <- grid::textGrob(
-    expression(paste("pwc: ", bold("Kolmogorov–Smirnov test"), "; p.adjust: ", bold("Bonferroni"))),
-    x = 0.99, y = 0.01, hjust = 1, vjust = 0,
-    gp = grid::gpar(fontsize = 9)
-  )
+  footer_text <- grid::textGrob(expression(paste("pwc: ", bold("Kolmogorov–Smirnov test"), "; p.adjust: ", bold("Bonferroni"))),
+                                x = 0.99, y = 0.01, hjust = 1, vjust = 0,
+                                gp = grid::gpar(fontsize = 9))
 
   # Combine plot and footer
   combined_plot <- gridExtra::grid.arrange(
