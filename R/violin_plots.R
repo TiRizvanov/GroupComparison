@@ -56,7 +56,7 @@ create_violin_plot <- function(data, group_column, value_column, x_labels = NULL
   
   # Create a function to calculate 95% confidence interval limits
   calc_ci <- function(x) {
-    q <- quantile(x, probs = c(0.025, 0.975))
+    q <- quantile(x, probs = c(0.025, 0.975), na.rm = TRUE)
     return(q)
   }
   
@@ -91,27 +91,20 @@ create_violin_plot <- function(data, group_column, value_column, x_labels = NULL
     
     p_values_df <- p_values_df %>%
       mutate(
-        label = ifelse(
-          p_value_format == "asterisk",
-          ifelse(p_value < 0.001, "***",
-                 ifelse(p_value < 0.01, "**",
-                        ifelse(p_value < 0.05, "*", ""))),
-          format(round(p_value, 3), nsmall = 3)
-        ),
-        y.position = max(data$delta, na.rm = TRUE) + (1:nrow(.)) * 0.05 * diff(range(data$delta, na.rm = TRUE))
-      )
+        label = ifelse(p_value_format == "asterisk",
+                       ifelse(p_value < 0.001, "***",
+                              ifelse(p_value < 0.01, "**",
+                                     ifelse(p_value < 0.05, "*", ""))),
+                       format(round(p_value, 3), nsmall = 3)),
+        y.position = max(data$delta, na.rm = TRUE) + (row_number()) * 0.05 * diff(range(data$delta, na.rm = TRUE))
+      ) %>%
+      rename(p.value = p_value)  # Rename to match ggpubr's expectation
   }
   
   # Create the base violin plot
   p <- ggplot() +
-    geom_violin(
-      data = data_violin,
-      aes(x = group_label, y = delta, fill = group_label),
-      trim = FALSE,
-      show.legend = FALSE,
-      width = 0.8,
-      adjust = 2.2
-    ) +
+    geom_violin(data = data_violin, aes(x = group_label, y = delta, fill = group_label), 
+                trim = FALSE, show.legend = FALSE, width = 0.8, adjust = 2.2) +
     scale_fill_manual(values = group_colors) +
     labs(x = x_lab, y = y_lab) +
     theme_minimal() +
@@ -121,53 +114,33 @@ create_violin_plot <- function(data, group_column, value_column, x_labels = NULL
       axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, size = 12, face = "bold"),
       axis.text.y = element_text(size = 14, face = "bold"),
       panel.grid.minor = element_blank(),
-      panel.spacing = unit(0.02, "lines")  # Further reduce space between plots
+      panel.spacing = unit(0.02, "lines")
     )
   
   # Conditionally add elements based on user input
   if (box_plot) {
-    p <- p + geom_boxplot(
-      data = data_violin,
-      aes(x = group_label, y = delta),
-      width = 0.1,
-      outlier.shape = NA,
-      color = "#4D4D4D",
-      fill = "#4D4D4D",
-      notch = FALSE,
-      show.legend = FALSE
-    )
+    p <- p + geom_boxplot(data = data_violin, aes(x = group_label, y = delta), 
+                          width = 0.1, outlier.shape = NA, color = "#4D4D4D", 
+                          fill = "#4D4D4D", notch = FALSE, show.legend = FALSE)
   }
   
   if (median) {
-    p <- p + stat_summary(
-      data = data_violin,
-      aes(x = group_label, y = delta),
-      fun = median,
-      geom = "point",
-      shape = 21,
-      size = 2,
-      fill = "white",
-      color = "white",
-      show.legend = FALSE
-    )
+    p <- p + stat_summary(data = data_violin, aes(x = group_label, y = delta), 
+                          fun = "median", geom = "point", shape = 21, size = 2, 
+                          fill = "white", color = "white", show.legend = FALSE)
   }
   
   if (outliers) {
-    p <- p + geom_point(
-      data = data_outliers,
-      aes(x = group_label, y = delta),
-      color = outliers_color,
-      size = 1,
-      show.legend = FALSE
-    )
+    p <- p + geom_point(data = data_outliers, aes(x = group_label, y = delta), 
+                        color = outliers_color, size = 1, show.legend = FALSE)
   }
   
   # Add p-values and comparison brackets if p_value is TRUE
   if (p_value) {
     p <- p + ggpubr::stat_pvalue_manual(
-      p_values_df,
-      label = "label",
-      tip.length = 0.01,
+      p_values_df, 
+      label = "label", 
+      tip.length = 0.01, 
       step.increase = 0.01
     )
   }
