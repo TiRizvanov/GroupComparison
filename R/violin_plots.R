@@ -38,110 +38,150 @@ create_violin_plot <- function(data, group_column, value_column, x_labels = NULL
                                breaks = NULL, limits = NULL, outliers_color = "red",
                                x_lab = "", y_lab = NULL, p_value = TRUE, p_value_format = "asterisk",
                                box_plot = TRUE, outliers = TRUE, median = TRUE) {
-
+  
   # Rename columns for consistency
   data <- data %>%
     rename(delta = !!rlang::sym(value_column), group_label = !!rlang::sym(group_column))
-
+  
   # Define the order of the groups for plotting
   group_order <- names(group_colors)
-
+  
   # Ensure factor levels are correctly ordered
   data$group_label <- factor(data$group_label, levels = group_order)
-
+  
   # Set default y-axis label to the name of the value column if not provided
   if (is.null(y_lab)) {
     y_lab <- value_column
   }
-
+  
   # Create a function to calculate 95% confidence interval limits
   calc_ci <- function(x) {
     q <- quantile(x, probs = c(0.025, 0.975))
     return(q)
   }
-
+  
   # Calculate the confidence intervals and identify outliers
   data <- data %>%
     group_by(group_label) %>%
     mutate(lower_ci = calc_ci(delta)[1],
            upper_ci = calc_ci(delta)[2]) %>%
     ungroup()
-
+  
   # Filter data for violin plot (excluding outliers)
   data_violin <- data %>%
     filter(delta >= lower_ci & delta <= upper_ci)
-
+  
   # Identify outliers
   data_outliers <- data %>%
     filter(delta < lower_ci | delta > upper_ci)
-
+  
   # Calculate p-values for all pairwise comparisons if p_value is TRUE
-if (p_value) {
-  pairwise_groups <- combn(levels(data$group_label), 2, simplify = FALSE)
-  p_values <- lapply(pairwise_groups, function(pair) {
-    data1 <- data %>% filter(group_label == pair[1])
-    data2 <- data %>% filter(group_label == pair[2])
-    p_value <- ks.test(data1$delta, data2$delta)$p.value
-    return(data.frame(group1 = pair[1], group2 = pair[2], p_value = p_value))
-  })
+  if (p_value) {
+    pairwise_groups <- combn(levels(data$group_label), 2, simplify = FALSE)
+    p_values <- lapply(pairwise_groups, function(pair) {
+      data1 <- data %>% filter(group_label == pair[1])
+      data2 <- data %>% filter(group_label == pair[2])
+      p_val <- ks.test(data1$delta, data2$delta)$p.value
+      return(data.frame(group1 = pair[1], group2 = pair[2], p_value = p_val))
+    })
+    
+    # Adjust p-values using the Bonferroni method
+    p_values_df <- do.call(rbind, p_values)
+    p_values_df$p_value <- p.adjust(p_values_df$p_value, method = "bonferroni")
+    
+    p_values_df <- p_values_df %>%
+      mutate(
+        label = ifelse(
+          p_value_format == "asterisk",
+          ifelse(p_value < 0.001, "***",
+                 ifelse(p_value < 0.01, "**",
+                        ifelse(p_value < 0.05, "*", ""))),
+          format(round(p_value, 3), nsmall = 3)
+        ),
+        y.position = max(data$delta, na.rm = TRUE) + (1:nrow(.)) * 0.05 * diff(range(data$delta, na.rm = TRUE))
+      )
+  }
   
-  # Adjust p-values using the Bonferroni method
-  p_values_df <- do.call(rbind, p_values)
-  p_values_df$p_value <- p.adjust(p_values_df$p_value, method = "bonferroni")
-  
-  p_values_df <- p_values_df %>%
-    mutate(label = if (p_value_format == "asterisk") {
-      ifelse(p_value < 0.001, "***",
-             ifelse(p_value < 0.01, "**",
-                    ifelse(p_value < 0.05, "*", "")))
-    } else {
-      format(round(p_value, 3), nsmall = 3)
-    },
-    y.position = max(data$delta) + (1:nrow(.)) * 0.05 * diff(range(data$delta)))
-}
-
-
   # Create the base violin plot
   p <- ggplot() +
-    geom_violin(data = data_violin, aes(x = group_label, y = delta, fill = group_label), trim = FALSE, show.legend = FALSE, width = 0.8, adjust = 2.2) +
+    geom_violin(
+      data = data_violin,
+      aes(x = group_label, y = delta, fill = group_label),
+      trim = FALSE,
+      show.legend = FALSE,
+      width = 0.8,
+      adjust = 2.2
+    ) +
     scale_fill_manual(values = group_colors) +
     labs(x = x_lab, y = y_lab) +
     theme_minimal() +
-    theme(axis.title.x = element_text(size = 14, face = "bold"),
-          axis.title.y = element_text(size = 14, face = "bold"),
-          axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, size = 12, face = "bold"),
-          axis.text.y = element_text(size = 14, face = "bold"),
-          panel.grid.minor = element_blank(),
-          panel.spacing = unit(0.02, "lines"))  # Further reduce space between plots
-
+    theme(
+      axis.title.x = element_text(size = 14, face = "bold"),
+      axis.title.y = element_text(size = 14, face = "bold"),
+      axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, size = 12, face = "bold"),
+      axis.text.y = element_text(size = 14, face = "bold"),
+      panel.grid.minor = element_blank(),
+      panel.spacing = unit(0.02, "lines")  # Further reduce space between plots
+    )
+  
   # Conditionally add elements based on user input
   if (box_plot) {
-    p <- p + geom_boxplot(data = data_violin, aes(x = group_label, y = delta), width = 0.1, outlier.shape = NA, color = "#4D4D4D", fill = "#4D4D4D", notch = FALSE, show.legend = FALSE)
+    p <- p + geom_boxplot(
+      data = data_violin,
+      aes(x = group_label, y = delta),
+      width = 0.1,
+      outlier.shape = NA,
+      color = "#4D4D4D",
+      fill = "#4D4D4D",
+      notch = FALSE,
+      show.legend = FALSE
+    )
   }
-
+  
   if (median) {
-    p <- p + stat_summary(data = data_violin, aes(x = group_label, y = delta), fun = "median", geom = "point", shape = 21, size = 2, fill = "white", color = "white", show.legend = FALSE)
+    p <- p + stat_summary(
+      data = data_violin,
+      aes(x = group_label, y = delta),
+      fun = median,
+      geom = "point",
+      shape = 21,
+      size = 2,
+      fill = "white",
+      color = "white",
+      show.legend = FALSE
+    )
   }
-
+  
   if (outliers) {
-    p <- p + geom_point(data = data_outliers, aes(x = group_label, y = delta), color = outliers_color, size = 1, show.legend = FALSE)
+    p <- p + geom_point(
+      data = data_outliers,
+      aes(x = group_label, y = delta),
+      color = outliers_color,
+      size = 1,
+      show.legend = FALSE
+    )
   }
-
+  
   # Add p-values and comparison brackets if p_value is TRUE
   if (p_value) {
-    p <- p + stat_pvalue_manual(p_values_df, label = "label", tip.length = 0.01, step.increase = 0.01)
+    p <- p + ggpubr::stat_pvalue_manual(
+      p_values_df,
+      label = "label",
+      tip.length = 0.01,
+      step.increase = 0.01
+    )
   }
-
+  
   # Apply breaks and limits to the y-axis if provided
   if (!is.null(breaks) || !is.null(limits)) {
     p <- p + scale_y_continuous(breaks = breaks, limits = limits)
   }
-
+  
   # Use group names as x-axis labels if no custom labels are provided
   if (is.null(x_labels)) {
     x_labels <- levels(data$group_label)
   }
   p <- p + scale_x_discrete(labels = x_labels)
-
+  
   return(p)
 }
