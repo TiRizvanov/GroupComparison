@@ -385,6 +385,9 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     # Combine p-values
     p_values_df <- do.call(rbind, p_values_list)
     
+    # Adjust p-values using Bonferroni correction
+    p_values_df$p_value_adj <- p.adjust(p_values_df$p_value, method = "bonferroni")
+    
     # Generate labels
     p_values_df$label <- ifelse(p_value_format == "asterisk",
                                 ifelse(p_values_df$p_value_adj < 0.001, "***",
