@@ -453,25 +453,25 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
       ggplot2::geom_segment(
         data = p_values_df,
         aes(x = x1, xend = x2, y = y.position, yend = y.position),
-        color = "black",
+        color = "#808080",
         inherit.aes = FALSE
       ) +
       ggplot2::geom_segment(
         data = p_values_df,
         aes(x = x1, xend = x1, y = y.position, yend = y.position - 0.01 * data_range),
-        color = "black",
+        color = "#808080",
         inherit.aes = FALSE
       ) +
       ggplot2::geom_segment(
         data = p_values_df,
         aes(x = x2, xend = x2, y = y.position, yend = y.position - 0.01 * data_range),
-        color = "black",
+        color = "#808080",
         inherit.aes = FALSE
       ) +
       ggplot2::geom_text(
         data = p_values_df,
         aes(x = x_label, y = y.position + 0.02 * data_range, label = label),
-        size = 3, color = "black",
+        size = 3, color = "#808080",
         inherit.aes = FALSE
       )
   }
