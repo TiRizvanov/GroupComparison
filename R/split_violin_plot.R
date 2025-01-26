@@ -243,7 +243,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
         inherit.aes = FALSE
       ) 
     if(!abs){
-      +
+      p <- p +
       ggplot2::geom_segment(
         data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
         aes(
@@ -256,7 +256,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
         inherit.aes = FALSE
       )
       }
-    +
+    p <- p +
       ggplot2::geom_segment(
         data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
         aes(
