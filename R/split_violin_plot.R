@@ -206,6 +206,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     if (abs) {
       # When abs = TRUE, only upper_ci is available
       p <- p +
+        # Q1 lines
         ggplot2::geom_segment(
           data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
           aes(
@@ -228,6 +229,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
           color = scales::alpha(q_colors[2], 0.9), size = 0.5,
           inherit.aes = FALSE
         ) +
+        # Q3 lines
         ggplot2::geom_segment(
           data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
           aes(
@@ -250,6 +252,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
           color = scales::alpha(q_colors[2], 0.9), size = 0.5,
           inherit.aes = FALSE
         ) +
+        # Upper CI lines
         ggplot2::geom_segment(
           data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
           aes(
@@ -260,10 +263,22 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
           ),
           color = scales::alpha(q_colors[1], 0.9), size = 0.5,
           inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
+          aes(
+            x = as.numeric(factor(group)) - 0.0625,
+            xend = as.numeric(factor(group)) - 0.0625,
+            y = Q3,
+            yend = upper_ci
+          ),
+          color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+          inherit.aes = FALSE
         )
     } else {
       # When abs = FALSE, both lower_ci and upper_ci are available
       p <- p +
+        # Q1 lines
         ggplot2::geom_segment(
           data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
           aes(
@@ -286,6 +301,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
           color = scales::alpha(q_colors[2], 0.9), size = 0.5,
           inherit.aes = FALSE
         ) +
+        # Q3 lines
         ggplot2::geom_segment(
           data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
           aes(
@@ -308,6 +324,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
           color = scales::alpha(q_colors[2], 0.9), size = 0.5,
           inherit.aes = FALSE
         ) +
+        # Lower CI lines
         ggplot2::geom_segment(
           data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
           aes(
@@ -330,6 +347,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
           color = scales::alpha(q_colors[2], 0.9), size = 0.5,
           inherit.aes = FALSE
         ) +
+        # Upper CI lines
         ggplot2::geom_segment(
           data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
           aes(
