@@ -87,17 +87,30 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
   }
   
   # Calculate summary statistics
-  summary_stats <- data %>%
-    dplyr::group_by(group, split) %>%
-    dplyr::summarize(
-      median = median(value),
-      Q1 = quantile(value, 0.25),
-      Q3 = quantile(value, 0.75),
-      n = dplyr::n(),
-      lower_ci = quantile(value, 0.025),
-      upper_ci = quantile(value, 0.975),
-      .groups = 'drop'
-    )
+  if (abs) {
+    summary_stats <- data %>%
+      dplyr::group_by(group, split) %>%
+      dplyr::summarize(
+        median = median(value),
+        Q1 = quantile(value, 0.25),
+        Q3 = quantile(value, 0.75),
+        n = dplyr::n(),
+        upper_ci = quantile(value, 0.95),
+        .groups = 'drop'
+      )
+  } else {
+    summary_stats <- data %>%
+      dplyr::group_by(group, split) %>%
+      dplyr::summarize(
+        median = median(value),
+        Q1 = quantile(value, 0.25),
+        Q3 = quantile(value, 0.75),
+        n = dplyr::n(),
+        lower_ci = quantile(value, 0.025),
+        upper_ci = quantile(value, 0.975),
+        .groups = 'drop'
+      )
+  }
   
   # Filter outliers based on CI
   if (abs) {
@@ -112,9 +125,15 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
   }
   
   # Filter data for the plot (values inside the CI limits)
-  data_filtered <- data %>%
-    dplyr::left_join(summary_stats, by = c("group", "split")) %>%
-    dplyr::filter(value >= lower_ci & value <= upper_ci)
+  if (abs) {
+    data_filtered <- data %>%
+      dplyr::left_join(summary_stats, by = c("group", "split")) %>%
+      dplyr::filter(value <= upper_ci)
+  } else {
+    data_filtered <- data %>%
+      dplyr::left_join(summary_stats, by = c("group", "split")) %>%
+      dplyr::filter(value >= lower_ci & value <= upper_ci)
+  }
   
   # Define border and quantile colors (10% darker)
   border_colors <- colorspace::darken(colors, 0.15)
@@ -184,95 +203,156 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
   
   # Conditionally add CIs (along with Q1, Q3 lines)
   if (CI) {
-    p <- p +
-      ggplot2::geom_segment(
-        data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
-        aes(
-          x = as.numeric(factor(group)),
-          xend = as.numeric(factor(group)) + 0.125,
-          y = Q1,
-          yend = Q1
-        ),
-        color = scales::alpha(q_colors[1], 0.9), size = 0.5,
-        inherit.aes = FALSE
-      ) +
-      ggplot2::geom_segment(
-        data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
-        aes(
-          x = as.numeric(factor(group)) - 0.125,
-          xend = as.numeric(factor(group)),
-          y = Q1,
-          yend = Q1
-        ),
-        color = scales::alpha(q_colors[2], 0.9), size = 0.5,
-        inherit.aes = FALSE
-      ) +
-      ggplot2::geom_segment(
-        data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
-        aes(
-          x = as.numeric(factor(group)),
-          xend = as.numeric(factor(group)) + 0.125,
-          y = Q3,
-          yend = Q3
-        ),
-        color = scales::alpha(q_colors[1], 0.9), size = 0.5,
-        inherit.aes = FALSE
-      ) +
-      ggplot2::geom_segment(
-        data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
-        aes(
-          x = as.numeric(factor(group)) - 0.125,
-          xend = as.numeric(factor(group)),
-          y = Q3,
-          yend = Q3
-        ),
-        color = scales::alpha(q_colors[2], 0.9), size = 0.5,
-        inherit.aes = FALSE
-      ) +
-      ggplot2::geom_segment(
-        data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
-        aes(
-          x = as.numeric(factor(group)) + 0.0625,
-          xend = as.numeric(factor(group)) + 0.0625,
-          y = Q1,
-          yend = lower_ci
-        ),
-        color = scales::alpha(q_colors[1], 0.9), size = 0.5,
-        inherit.aes = FALSE
-      ) +
-      ggplot2::geom_segment(
-        data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
-        aes(
-          x = as.numeric(factor(group)) - 0.0625,
-          xend = as.numeric(factor(group)) - 0.0625,
-          y = Q1,
-          yend = lower_ci
-        ),
-        color = scales::alpha(q_colors[2], 0.9), size = 0.5,
-        inherit.aes = FALSE
-      ) +
-      ggplot2::geom_segment(
-        data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
-        aes(
-          x = as.numeric(factor(group)) + 0.0625,
-          xend = as.numeric(factor(group)) + 0.0625,
-          y = Q3,
-          yend = upper_ci
-        ),
-        color = scales::alpha(q_colors[1], 0.9), size = 0.5,
-        inherit.aes = FALSE
-      ) +
-      ggplot2::geom_segment(
-        data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
-        aes(
-          x = as.numeric(factor(group)) - 0.0625,
-          xend = as.numeric(factor(group)) - 0.0625,
-          y = Q3,
-          yend = upper_ci
-        ),
-        color = scales::alpha(q_colors[2], 0.9), size = 0.5,
-        inherit.aes = FALSE
-      )
+    if (abs) {
+      # When abs = TRUE, only upper_ci is available
+      p <- p +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
+          aes(
+            x = as.numeric(factor(group)),
+            xend = as.numeric(factor(group)) + 0.125,
+            y = Q1,
+            yend = Q1
+          ),
+          color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
+          aes(
+            x = as.numeric(factor(group)) - 0.125,
+            xend = as.numeric(factor(group)),
+            y = Q1,
+            yend = Q1
+          ),
+          color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
+          aes(
+            x = as.numeric(factor(group)),
+            xend = as.numeric(factor(group)) + 0.125,
+            y = Q3,
+            yend = Q3
+          ),
+          color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
+          aes(
+            x = as.numeric(factor(group)) - 0.125,
+            xend = as.numeric(factor(group)) - 0.125,
+            y = Q3,
+            yend = upper_ci
+          ),
+          color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
+          aes(
+            x = as.numeric(factor(group)) + 0.0625,
+            xend = as.numeric(factor(group)) + 0.0625,
+            y = Q3,
+            yend = upper_ci
+          ),
+          color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        )
+    } else {
+      # When abs = FALSE, both lower_ci and upper_ci are available
+      p <- p +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
+          aes(
+            x = as.numeric(factor(group)),
+            xend = as.numeric(factor(group)) + 0.125,
+            y = Q1,
+            yend = Q1
+          ),
+          color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
+          aes(
+            x = as.numeric(factor(group)) - 0.125,
+            xend = as.numeric(factor(group)),
+            y = Q1,
+            yend = Q1
+          ),
+          color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
+          aes(
+            x = as.numeric(factor(group)),
+            xend = as.numeric(factor(group)) + 0.125,
+            y = Q3,
+            yend = Q3
+          ),
+          color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
+          aes(
+            x = as.numeric(factor(group)) - 0.125,
+            xend = as.numeric(factor(group)) - 0.125,
+            y = Q3,
+            yend = upper_ci
+          ),
+          color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
+          aes(
+            x = as.numeric(factor(group)) + 0.0625,
+            xend = as.numeric(factor(group)) + 0.0625,
+            y = Q1,
+            yend = lower_ci
+          ),
+          color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
+          aes(
+            x = as.numeric(factor(group)) - 0.0625,
+            xend = as.numeric(factor(group)) - 0.0625,
+            y = Q1,
+            yend = lower_ci
+          ),
+          color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
+          aes(
+            x = as.numeric(factor(group)) + 0.0625,
+            xend = as.numeric(factor(group)) + 0.0625,
+            y = Q3,
+            yend = upper_ci
+          ),
+          color = scales::alpha(q_colors[1], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        ggplot2::geom_segment(
+          data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
+          aes(
+            x = as.numeric(factor(group)) - 0.0625,
+            xend = as.numeric(factor(group)) - 0.0625,
+            y = Q3,
+            yend = upper_ci
+          ),
+          color = scales::alpha(q_colors[2], 0.9), size = 0.5,
+          inherit.aes = FALSE
+        )
+    }
   }
   
   # Conditionally add medians
