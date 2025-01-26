@@ -261,9 +261,7 @@ if (abs) {
         ),
         color = scales::alpha(q_colors[1], 0.9), size = 0.5,
         inherit.aes = FALSE
-      )
-      }
-    p <- p +
+      ) +
       ggplot2::geom_segment(
         data = summary_stats %>% dplyr::filter(split == names(colors)[2]),
         aes(
@@ -274,7 +272,9 @@ if (abs) {
         ),
         color = scales::alpha(q_colors[2], 0.9), size = 0.5,
         inherit.aes = FALSE
-      ) +
+      )
+      }
+    p <- p +
       ggplot2::geom_segment(
         data = summary_stats %>% dplyr::filter(split == names(colors)[1]),
         aes(
