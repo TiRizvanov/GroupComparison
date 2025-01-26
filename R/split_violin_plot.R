@@ -126,9 +126,15 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
   }
   
   # Filter data for the plot (values inside the CI limits)
-  data_filtered <- data %>%
-    dplyr::left_join(summary_stats, by = c("group", "split")) %>%
-    dplyr::filter(value >= lower_ci & value <= upper_ci)
+if (abs) {
+    data_filtered <- data %>%
+      dplyr::left_join(summary_stats, by = c("group", "split")) %>%
+      dplyr::filter(value <= upper_ci)
+  } else {
+    data_filtered <- data %>%
+      dplyr::left_join(summary_stats, by = c("group", "split")) %>%
+      dplyr::filter(value >= lower_ci & value <= upper_ci)
+  }
   
   # Define border and quantile colors (10% darker)
   border_colors <- colorspace::darken(colors, 0.15)
