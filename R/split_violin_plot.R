@@ -96,7 +96,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
         Q3 = quantile(value, 0.75),
         n = dplyr::n(),
         upper_ci = quantile(value, 0.95),
-        lower_ci = 0
+        lower_ci = 0,
         .groups = 'drop'
       )
   } else {
