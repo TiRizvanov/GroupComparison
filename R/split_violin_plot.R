@@ -577,7 +577,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     footer_text <- grid::textGrob(
       bquote(paste("pwc: ", bold("Kolmogorov–Smirnov test"),
                    "; p.adjust: ", bold("Bonferroni"),
-                   "\nBootstrapping: Subset Size = ", .(BatchSize), "%, ", .(Resamples), " Resamples")),
+                   "; Bootstrapping: Subset Size = ", bold(.(BatchSize), "%"), ", ", bold(.(Resamples)), " Resamples")),
       x = 0.99, y = 0.01, hjust = 1, vjust = 0,
       gp = grid::gpar(fontsize = 9)
     )
