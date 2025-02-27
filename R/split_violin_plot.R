@@ -49,7 +49,7 @@
 #'   "ASSAY_FORMAT_ISSUE" = "Unicellular organism"
 #' )
 #'
-#' # Generate the split violin plot with custom labels and title
+#' # Generate the split violin plot with custom labels and title, using bootstrapping with custom parameters
 #' p <- split_violin_plot(
 #'   data, "group", "value", "split_criteria", colors, labels = labels,
 #'   x_lab = "", y_lab = bquote(bold(Delta ~ Log(activity))),
@@ -571,12 +571,24 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     legend <- NULL
   }
   
-  # Create footer text with "Kolmogorov–Smirnov test" and "Bonferroni" in bold
-  footer_text <- grid::textGrob(
-    expression(paste("pwc: ", bold("Kolmogorov–Smirnov test"), "; p.adjust: ", bold("Bonferroni"))),
-    x = 0.99, y = 0.01, hjust = 1, vjust = 0,
-    gp = grid::gpar(fontsize = 9)
-  )
+  # Create footer text with "Kolmogorov–Smirnov test" and "Bonferroni" in bold.
+  # If bootstrapping is enabled, add a new line with the actual BatchSize and Resamples.
+  if (BOOT) {
+    footer_text <- grid::textGrob(
+      bquote(paste("pwc: ", bold("Kolmogorov–Smirnov test"),
+                   "; p.adjust: ", bold("Bonferroni"),
+                   "\nBootstrapping: Subset Size = ", .(BatchSize), "%, ", .(Resamples), " Resamples")),
+      x = 0.99, y = 0.01, hjust = 1, vjust = 0,
+      gp = grid::gpar(fontsize = 9)
+    )
+  } else {
+    footer_text <- grid::textGrob(
+      expression(paste("pwc: ", bold("Kolmogorov–Smirnov test"),
+                       "; p.adjust: ", bold("Bonferroni"))),
+      x = 0.99, y = 0.01, hjust = 1, vjust = 0,
+      gp = grid::gpar(fontsize = 9)
+    )
+  }
   
   # Combine plot, legend, and footer
   if (!is.null(legend)) {
