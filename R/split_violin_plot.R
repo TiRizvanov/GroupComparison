@@ -24,7 +24,9 @@
 #' @param p_value_format A string, either "asterisk" or "numeric", to control how p-values are shown (default "asterisk").
 #' @param x_labels An optional named vector for renaming the groups on the x-axis. Names should correspond to the original group labels, and values are the new labels (can include \n for line breaks).
 #' @param x_labels_size A numeric value to set the size of the x-axis label text (default: 12).
-#' @param BOOT Logical, whether to calculate summary statistics using bootstrapping with 1000 resamples (default FALSE).
+#' @param BOOT Logical, whether to use bootstrapping for calculating median, Q1, Q3, and confidence intervals (default FALSE).
+#' @param BatchSize Numeric, percentage of the dataset size to use for each bootstrap resample (default 100, meaning 100%).
+#' @param Resamples Numeric, number of bootstrap resamples to perform (default 1000).
 #'
 #' @return A ggplot2 object with the split violin plot and custom legend.
 #' @import ggplot2 dplyr gridExtra rlang colorspace grid
@@ -50,13 +52,13 @@
 #' # Generate the split violin plot with custom labels and title
 #' p <- split_violin_plot(
 #'   data, "group", "value", "split_criteria", colors, labels = labels,
-#'   x_lab = "", y_lab = bquote(bold(Delta ~ Log(activity)))),
+#'   x_lab = "", y_lab = bquote(bold(Delta ~ Log(activity))),
 #'   name = "Impact of Site Type on Activity",
 #'   x_labels = x_labels,
 #'   x_labels_size = 12,
 #'   outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
 #'   abs = TRUE, p_value = TRUE, p_value_format = "asterisk",
-#'   BOOT = TRUE
+#'   BOOT = TRUE, BatchSize = 80, Resamples = 100
 #' )
 #' print(p)
 split_violin_plot <- function(data, group_column, value_column, split_column, colors, labels = NULL,
@@ -65,7 +67,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                               outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
                               abs = FALSE, p_value = TRUE, p_value_format = "asterisk",
                               x_labels = NULL, x_labels_size = 12,
-                              BOOT = TRUE) {
+                              BOOT = FALSE, BatchSize = 100, Resamples = 1000) {
   
   # Rename columns for consistency
   data <- data %>%
@@ -88,37 +90,57 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     y_lab <- value_column
   }
   
-  # Calculate summary statistics
+  # Calculate summary statistics (using bootstrapping if BOOT == TRUE)
   if (BOOT) {
-    # Define helper function for bootstrapping summary statistics
-    boot_stats_func <- function(x, abs) {
-      boot_medians <- replicate(1000, median(sample(x, length(x), replace = TRUE)))
-      boot_Q1 <- replicate(1000, quantile(sample(x, length(x), replace = TRUE), 0.25))
-      boot_Q3 <- replicate(1000, quantile(sample(x, length(x), replace = TRUE), 0.75))
-      med <- median(boot_medians)
-      q1 <- median(boot_Q1)
-      q3 <- median(boot_Q3)
-      if (abs) {
-        lower_ci <- 0
-        upper_ci <- as.numeric(quantile(boot_medians, 0.95))
-      } else {
-        lower_ci <- as.numeric(quantile(boot_medians, 0.025))
-        upper_ci <- as.numeric(quantile(boot_medians, 0.975))
-      }
-      return(c(median = med, Q1 = q1, Q3 = q3, lower_ci = lower_ci, upper_ci = upper_ci))
-    }
     summary_stats <- data %>%
       dplyr::group_by(group, split) %>%
-      dplyr::do({
-        stats <- boot_stats_func(.$value, abs)
-        data.frame(median = stats["median"],
-                   Q1 = stats["Q1"],
-                   Q3 = stats["Q3"],
-                   lower_ci = stats["lower_ci"],
-                   upper_ci = stats["upper_ci"],
-                   n = nrow(.))
-      }) %>%
-      dplyr::ungroup()
+      dplyr::summarize(
+        n = dplyr::n(),
+        median = {
+          N <- dplyr::n()
+          mean(replicate(Resamples, {
+            sample_data <- sample(value, size = max(1, round(BatchSize/100 * N)), replace = TRUE)
+            median(sample_data)
+          }))
+        },
+        Q1 = {
+          N <- dplyr::n()
+          mean(replicate(Resamples, {
+            sample_data <- sample(value, size = max(1, round(BatchSize/100 * N)), replace = TRUE)
+            quantile(sample_data, 0.25)
+          }))
+        },
+        Q3 = {
+          N <- dplyr::n()
+          mean(replicate(Resamples, {
+            sample_data <- sample(value, size = max(1, round(BatchSize/100 * N)), replace = TRUE)
+            quantile(sample_data, 0.75)
+          }))
+        },
+        lower_ci = if (abs) {
+          0
+        } else {
+          N <- dplyr::n()
+          mean(replicate(Resamples, {
+            sample_data <- sample(value, size = max(1, round(BatchSize/100 * N)), replace = TRUE)
+            quantile(sample_data, 0.025)
+          }))
+        },
+        upper_ci = if (abs) {
+          N <- dplyr::n()
+          mean(replicate(Resamples, {
+            sample_data <- sample(value, size = max(1, round(BatchSize/100 * N)), replace = TRUE)
+            quantile(sample_data, 0.95)
+          }))
+        } else {
+          N <- dplyr::n()
+          mean(replicate(Resamples, {
+            sample_data <- sample(value, size = max(1, round(BatchSize/100 * N)), replace = TRUE)
+            quantile(sample_data, 0.975)
+          }))
+        },
+        .groups = 'drop'
+      )
   } else {
     if (abs) {
       summary_stats <- data %>%
@@ -282,7 +304,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
         ),
         color = scales::alpha(q_colors[2], 0.9), size = 0.5,
         inherit.aes = FALSE
-      ) 
+      )
     if(!abs){
       p <- p +
       ggplot2::geom_segment(
@@ -450,7 +472,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     p_values_df$label <- ifelse(p_value_format == "asterisk",
                                 ifelse(p_values_df$p_value_adj < 0.001, "***",
                                        ifelse(p_values_df$p_value_adj < 0.01, "**",
-                                              ifelse(p_values_df$p_value_adj < 0.05, "*", "")))),
+                                              ifelse(p_values_df$p_value_adj < 0.05, "*", ""))),
                                 format(round(p_values_df$p_value_adj, 3), nsmall = 3))
     
     # Get the max value for each (group, split) combination
@@ -461,7 +483,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
              split = as.character(split))
     
     # Merge max_values into p_values_df
-    p_values_df <- p_values_df %>% 
+    p_values_df <- p_values_df %>%
       dplyr::left_join(max_values, by = c("group1" = "group", "split1" = "split")) %>%
       dplyr::rename(max_value1 = max_value) %>%
       dplyr::left_join(max_values, by = c("group2" = "group", "split2" = "split")) %>%
