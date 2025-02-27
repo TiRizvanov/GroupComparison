@@ -65,7 +65,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
                               outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
                               abs = FALSE, p_value = TRUE, p_value_format = "asterisk",
                               x_labels = NULL, x_labels_size = 12,
-                              BOOT = FALSE) {
+                              BOOT = TRUE) {
   
   # Rename columns for consistency
   data <- data %>%
