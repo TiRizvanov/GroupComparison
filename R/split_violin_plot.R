@@ -24,6 +24,7 @@
 #' @param p_value_format A string, either "asterisk" or "numeric", to control how p-values are shown (default "asterisk").
 #' @param x_labels An optional named vector for renaming the groups on the x-axis. Names should correspond to the original group labels, and values are the new labels (can include \n for line breaks).
 #' @param x_labels_size A numeric value to set the size of the x-axis label text (default: 12).
+#' @param BOOT Logical, whether to calculate summary statistics using bootstrapping with 1000 resamples (default FALSE).
 #'
 #' @return A ggplot2 object with the split violin plot and custom legend.
 #' @import ggplot2 dplyr gridExtra rlang colorspace grid
@@ -49,21 +50,22 @@
 #' # Generate the split violin plot with custom labels and title
 #' p <- split_violin_plot(
 #'   data, "group", "value", "split_criteria", colors, labels = labels,
-#'   x_lab = "", y_lab = bquote(bold(Delta ~ Log(activity))),
+#'   x_lab = "", y_lab = bquote(bold(Delta ~ Log(activity)))),
 #'   name = "Impact of Site Type on Activity",
 #'   x_labels = x_labels,
 #'   x_labels_size = 12,
 #'   outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
-#'   abs = TRUE, p_value = TRUE, p_value_format = "asterisk"
+#'   abs = TRUE, p_value = TRUE, p_value_format = "asterisk",
+#'   BOOT = TRUE
 #' )
 #' print(p)
-
 split_violin_plot <- function(data, group_column, value_column, split_column, colors, labels = NULL,
                               x_lab = "Groups", y_lab = value_column, name = "",
                               breaks = NULL, limits = NULL,
                               outliers = TRUE, CI = TRUE, median = TRUE, n_obs = TRUE,
                               abs = FALSE, p_value = TRUE, p_value_format = "asterisk",
-                              x_labels = NULL, x_labels_size = 12) {
+                              x_labels = NULL, x_labels_size = 12,
+                              BOOT = FALSE) {
   
   # Rename columns for consistency
   data <- data %>%
@@ -86,31 +88,63 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
     y_lab <- value_column
   }
   
-    # Calculate summary statistics
-  if (abs) {
+  # Calculate summary statistics
+  if (BOOT) {
+    # Define helper function for bootstrapping summary statistics
+    boot_stats_func <- function(x, abs) {
+      boot_medians <- replicate(1000, median(sample(x, length(x), replace = TRUE)))
+      boot_Q1 <- replicate(1000, quantile(sample(x, length(x), replace = TRUE), 0.25))
+      boot_Q3 <- replicate(1000, quantile(sample(x, length(x), replace = TRUE), 0.75))
+      med <- median(boot_medians)
+      q1 <- median(boot_Q1)
+      q3 <- median(boot_Q3)
+      if (abs) {
+        lower_ci <- 0
+        upper_ci <- as.numeric(quantile(boot_medians, 0.95))
+      } else {
+        lower_ci <- as.numeric(quantile(boot_medians, 0.025))
+        upper_ci <- as.numeric(quantile(boot_medians, 0.975))
+      }
+      return(c(median = med, Q1 = q1, Q3 = q3, lower_ci = lower_ci, upper_ci = upper_ci))
+    }
     summary_stats <- data %>%
       dplyr::group_by(group, split) %>%
-      dplyr::summarize(
-        median = median(value),
-        Q1 = quantile(value, 0.25),
-        Q3 = quantile(value, 0.75),
-        n = dplyr::n(),
-        upper_ci = quantile(value, 0.95),
-        lower_ci = 0,
-        .groups = 'drop'
-      )
+      dplyr::do({
+        stats <- boot_stats_func(.$value, abs)
+        data.frame(median = stats["median"],
+                   Q1 = stats["Q1"],
+                   Q3 = stats["Q3"],
+                   lower_ci = stats["lower_ci"],
+                   upper_ci = stats["upper_ci"],
+                   n = nrow(.))
+      }) %>%
+      dplyr::ungroup()
   } else {
-    summary_stats <- data %>%
-      dplyr::group_by(group, split) %>%
-      dplyr::summarize(
-        median = median(value),
-        Q1 = quantile(value, 0.25),
-        Q3 = quantile(value, 0.75),
-        n = dplyr::n(),
-        lower_ci = quantile(value, 0.025),
-        upper_ci = quantile(value, 0.975),
-        .groups = 'drop'
-      )
+    if (abs) {
+      summary_stats <- data %>%
+        dplyr::group_by(group, split) %>%
+        dplyr::summarize(
+          median = median(value),
+          Q1 = quantile(value, 0.25),
+          Q3 = quantile(value, 0.75),
+          n = dplyr::n(),
+          upper_ci = quantile(value, 0.95),
+          lower_ci = 0,
+          .groups = 'drop'
+        )
+    } else {
+      summary_stats <- data %>%
+        dplyr::group_by(group, split) %>%
+        dplyr::summarize(
+          median = median(value),
+          Q1 = quantile(value, 0.25),
+          Q3 = quantile(value, 0.75),
+          n = dplyr::n(),
+          lower_ci = quantile(value, 0.025),
+          upper_ci = quantile(value, 0.975),
+          .groups = 'drop'
+        )
+    }
   }
   
   # Filter outliers based on CI
@@ -126,7 +160,7 @@ split_violin_plot <- function(data, group_column, value_column, split_column, co
   }
   
   # Filter data for the plot (values inside the CI limits)
-if (abs) {
+  if (abs) {
     data_filtered <- data %>%
       dplyr::left_join(summary_stats, by = c("group", "split")) %>%
       dplyr::filter(value <= upper_ci)
@@ -416,7 +450,7 @@ if (abs) {
     p_values_df$label <- ifelse(p_value_format == "asterisk",
                                 ifelse(p_values_df$p_value_adj < 0.001, "***",
                                        ifelse(p_values_df$p_value_adj < 0.01, "**",
-                                              ifelse(p_values_df$p_value_adj < 0.05, "*", ""))),
+                                              ifelse(p_values_df$p_value_adj < 0.05, "*", "")))),
                                 format(round(p_values_df$p_value_adj, 3), nsmall = 3))
     
     # Get the max value for each (group, split) combination
@@ -427,7 +461,7 @@ if (abs) {
              split = as.character(split))
     
     # Merge max_values into p_values_df
-    p_values_df <- p_values_df %>%
+    p_values_df <- p_values_df %>% 
       dplyr::left_join(max_values, by = c("group1" = "group", "split1" = "split")) %>%
       dplyr::rename(max_value1 = max_value) %>%
       dplyr::left_join(max_values, by = c("group2" = "group", "split2" = "split")) %>%
